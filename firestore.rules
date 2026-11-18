@@ -1,0 +1,86 @@
+rules_version = '2';
+// The PPF Co. Stock — security rules.
+// BEFORE PUBLISHING: replace owner@example.com below (2 places) with the owner's email, in lowercase,
+// exactly as in firebase-config.js.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function email() { return request.auth.token.email.lower(); }
+    function isOwner() { return signedIn() && email() == "owner@example.com"; }
+    function memberPath() { return /databases/$(database)/documents/members/$(email()); }
+    function role() {
+      return isOwner() ? "admin"
+        : (signedIn() && exists(memberPath()) ? get(memberPath()).data.role : "none");
+    }
+    function isAdmin() { return role() == "admin"; }
+    function isSup()   { return role() in ["admin", "supervisor"]; }
+    function isStaff() { return role() in ["admin", "supervisor", "scanner"]; }
+    function isAny()   { return role() in ["admin", "supervisor", "scanner", "viewer"]; }
+    function cfgPath() { return /databases/$(database)/documents/config/app; }
+    // Maintenance mode pauses everyone except Admin
+    function open() { return isAdmin() || !(exists(cfgPath()) && get(cfgPath()).data.get("maintenance", false) == true); }
+    function d() { return request.resource.data; }
+    function onlyKeys(keys) { return d().diff(resource.data).affectedKeys().hasOnly(keys); }
+    function hasText(v) { return v is string && v.size() > 0; }
+
+    // Team & roles
+    match /members/{e} {
+      allow read: if signedIn() && (e == email() || isAdmin());
+      allow write: if isAdmin() && e != "owner@example.com";
+    }
+    // App settings (maintenance)
+    match /config/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    // Products. Scanners may only teach a product how a bill names it.
+    match /products/{id} {
+      allow read: if isAny();
+      allow create: if isSup() && open() && hasText(d().name);
+      allow update: if open() && (isSup() || (isStaff() && onlyKeys(["billNames", "updated"])));
+      allow delete: if isAdmin();
+    }
+    // B2B clients (with their customers and last rate per product)
+    match /dealers/{id} {
+      allow read: if isAny();
+      allow create: if isSup() && open() && hasText(d().name);
+      allow update: if open() && (isSup() || (isStaff() && onlyKeys(["phone", "customers", "lastOut", "rates", "updated"])));
+      allow delete: if isAdmin();
+    }
+    // Stores
+    match /depots/{id} {
+      allow read: if isAny();
+      allow write: if isAdmin();
+    }
+    // Live stock per store and product. Can never go below zero, so nothing goes out that isn't in stock.
+    match /stock/{id} {
+      allow read: if isAny();
+      allow create, update: if isStaff() && open() && d().qty is number && d().qty >= 0;
+      allow delete: if isAdmin();
+    }
+    // PPF rolls: a Roll ID can be created once, and can only go from "in" to "out".
+    match /rolls/{id} {
+      allow read: if isAny();
+      allow create: if isStaff() && open() && d().status == "in" && hasText(d().pid);
+      allow update: if isAdmin() || (isStaff() && open() && resource.data.status == "in" && d().status == "out");
+      allow delete: if isAdmin();
+    }
+    // Stock-in / B2B sale / self use / adjustment entries
+    match /entries/{id} {
+      allow read: if isAny();
+      allow create: if isStaff() && open()
+        && d().by == email()
+        && d().type in ["in", "out", "adj"]
+        && d().items is list && d().items.size() > 0
+        && (d().type != "adj" || (isAdmin() && hasText(d().reason)))
+        && (d().type != "in" || hasText(d().party))
+        && (d().type != "out" || d().outKind == "self"
+            || (d().outKind == "b2b" && hasText(d().customer)
+                && exists(/databases/$(database)/documents/dealers/$(d().dealerId))
+                && d().phone is string && d().phone.matches("^[6-9][0-9]{9}$")));
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+  }
+}
