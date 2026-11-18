@@ -7,7 +7,7 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
     function email() { return request.auth.token.email.lower(); }
-    function isOwner() { return signedIn() && email() == "owner@example.com"; }
+    function isOwner() { return signedIn() && email() == "niketsharma45@gmail.com"; }
     function memberPath() { return /databases/$(database)/documents/members/$(email()); }
     function role() {
       return isOwner() ? "admin"
@@ -27,7 +27,7 @@ service cloud.firestore {
     // Team & roles
     match /members/{e} {
       allow read: if signedIn() && (e == email() || isAdmin());
-      allow write: if isAdmin() && e != "owner@example.com";
+      allow write: if isAdmin() && e != "niketsharma45@gmail.com";
     }
     // App settings (maintenance)
     match /config/{id} {
