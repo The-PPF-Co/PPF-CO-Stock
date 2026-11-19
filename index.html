@@ -1447,6 +1447,7 @@ h2{font-family:var(--disp);font-weight:400;font-size:13px;letter-spacing:.03em;c
 .confirm-row:first-child{border-top:0}.confirm-row b{font-size:15px;color:#fff}.confirm-row .q{font-family:var(--disp);font-size:20px;white-space:nowrap}
 .chip{display:inline-flex;align-items:center;gap:4px;background:var(--soft);border:1px solid var(--line2);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:700;color:#fff}
 #cart .item .nm b{white-space:normal;overflow:visible}
+.toast{pointer-events:none}
 .toast.top{bottom:auto;top:calc(14px + env(safe-area-inset-top));transform:translateX(-50%) translateY(-160px)}
 .toast.top.show{transform:translateX(-50%) translateY(0)}
 /* printed labels stay black on white */
@@ -1472,6 +1473,52 @@ h2{font-family:var(--disp);font-weight:400;font-size:13px;letter-spacing:.03em;c
 .rollrow:first-child{border-top:0}
 details.billtext summary{cursor:pointer;color:var(--mute);font-size:12.5px;margin:10px 0 6px}
 details.billtext pre{white-space:pre-wrap;font:11px/1.45 "IBM Plex Mono",monospace;color:#9E9E9E;background:var(--soft);border-radius:12px;padding:10px;max-height:200px;overflow:auto}
+/* ---------- iPhone & small screens ---------- */
+html, body { overflow-x: clip; }
+.grid2 > *, .grid3 > *, .row > *, .field, .kpi { min-width: 0; }
+input, select, textarea { max-width: 100%; }
+/* Safari gives date boxes a fixed minimum width, which made From / To overlap */
+input[type=date], input[type=month] { -webkit-appearance: none; appearance: none; display: block; width: 100%; min-width: 0; text-align: left; line-height: 1.2; }
+input[type=date]::-webkit-date-and-time-value, input[type=month]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+/* iPhone zooms the whole page when a box with text smaller than 16px is tapped */
+input, select, textarea { font-size: 16px; }
+.sheet { max-height: 90vh; max-height: 90dvh; }
+.gate { min-height: 100vh; min-height: 100dvh; }
+.sumbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.sumbar input { flex: 1 1 150px; }
+.sumbar .btn { flex: none; }
+@media (max-width: 480px){
+  header .ring { display: none; }
+  #langBtn { display: none; }          /* language moves into the ☰ menu */
+  header { padding-left: 12px; padding-right: 12px; }
+  .hrow { gap: 6px; }
+  .hlogo { width: 32px; height: 32px; }
+  .brand h1 { font-size: 13px; letter-spacing: .02em; }
+  .brand .sub { font-size: 9px; letter-spacing: .1em; }
+  .hbtn { padding: 6px 10px; }
+  nav { gap: 0; margin-top: 8px; }
+  nav button { flex: 1 1 auto; padding: 12px 3px; font-size: 10.5px; letter-spacing: .04em; }
+  main { padding-left: 12px; padding-right: 12px; }
+  .card { padding: 14px; border-radius: 18px; }
+  .kpi { padding: 12px 10px; }
+  .kpi b { font-size: 17px; }
+  .kpi span { font-size: 9.5px; letter-spacing: .1em; }
+  .mode button { padding: 12px 2px; }
+  .sheet { padding-left: 14px; padding-right: 14px; }
+  .tbl { font-size: 13px; }
+  .tbl th, .tbl td { padding-left: 4px; padding-right: 4px; }
+}
+@media (max-width: 480px){
+  /* messages appear at the top on phones, so they never sit over the Save button */
+  .toast, .toast.top { bottom: auto; top: calc(10px + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-200px); }
+  .toast.show, .toast.top.show { transform: translateX(-50%) translateY(0); }
+  .btn.sm { min-height: 38px; }
+}
+.sheet { max-height: calc(var(--vvh, 100dvh) * .9); }
+@media (max-width: 360px){
+  .brand .sub { display: none; }
+  nav button { font-size: 9.5px; letter-spacing: 0; }
+}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -1561,10 +1608,7 @@ details.billtext pre{white-space:pre-wrap;font:11px/1.45 "IBM Plex Mono",monospa
       <select id="stockDepot" style="max-width:170px"></select>
       <input type="text" id="stockSearch" data-tp="Search product…">
     </div>
-    <div class="row wrap" id="stockActions" style="margin-bottom:10px" hidden>
-      <button class="btn" id="openingBtn">📥 <span data-t>Opening stock</span></button>
-      <span class="hint" style="margin:0" data-t>Tap a product to correct its stock.</span>
-    </div>
+    <div class="hint" style="margin:-2px 0 10px" data-t>Stock left right now. Tap a product to see or edit its details and stock.</div>
     <div class="card" id="stockList"></div>
     <button class="btn" id="xlStock">⬇ <span data-t>Download Excel</span></button>
   </section>
@@ -1592,10 +1636,10 @@ details.billtext pre{white-space:pre-wrap;font:11px/1.45 "IBM Plex Mono",monospa
 
   <!-- SUMMARY -->
   <section id="tab-summary" hidden>
-    <div class="row" style="margin-bottom:12px">
-      <input type="month" id="sMonth" style="max-width:190px">
-      <button class="btn" id="sRefresh">↻</button>
-      <button class="btn" id="xlMonth" style="margin-left:auto">⬇ <span data-t>Month Excel</span></button>
+    <div class="sumbar">
+      <input type="month" id="sMonth">
+      <button class="btn" id="sRefresh" aria-label="Reload">↻</button>
+      <button class="btn" id="xlMonth">⬇ <span data-t>Excel</span></button>
     </div>
     <div class="kpis" id="sKpis"></div>
     <div class="hint" style="margin:-4px 0 10px" data-t>Tap any row to download its entries as Excel.</div>
@@ -1705,7 +1749,13 @@ const HI = {
   "Client-wise (B2B)":"क्लाइंट के हिसाब से (B2B)","Service-wise (self use)":"सर्विस के हिसाब से","Car-wise (self use)":"गाड़ी के हिसाब से","Store-wise":"स्टोर के हिसाब से",
   "B2B units sold":"B2B यूनिट बिके","Self-use units":"स्टूडियो उपयोग यूनिट","Cars worked on":"गाड़ियों पर काम","Sales":"बिक्री","Jobs":"जॉब","Units used":"यूनिट लगे","Units":"यूनिट","Last sale":"आख़िरी बिक्री",
   "Supplier / distributor":"सप्लायर / डिस्ट्रीब्यूटर",
-  "Sizes":"साइज़","Low stock":"कम स्टॉक","Copy details":"विवरण कॉपी","is in another store":"दूसरे स्टोर में है","written off":"राइट-ऑफ़ हुआ",
+  "Sizes":"साइज़","Edit stock":"स्टॉक बदलें","Stock now":"अभी स्टॉक","Correct stock count":"सही स्टॉक गिनती","Save stock":"स्टॉक सेव करें","new stock":"नया स्टॉक",
+  "Pick a reason":"कारण चुनें","No reason (optional)":"कारण नहीं (वैकल्पिक)","required when removing stock":"स्टॉक घटाने पर ज़रूरी","A reason is needed to remove stock":"स्टॉक घटाने के लिए कारण ज़रूरी है",
+  "Stock updated":"स्टॉक अपडेट हुआ","No change yet":"अभी कोई बदलाव नहीं","Tick the rolls to remove":"हटाने वाले रोल चुनें","Rolls going out (oldest first)":"जाने वाले रोल (पुराने पहले)",
+  "Leaked / spilled":"लीक / गिरा","Lost / missing":"खोया / गायब","Used as sample / demo":"सैंपल / डेमो में","Return to supplier":"सप्लायर को वापस","Found extra stock":"ज़्यादा स्टॉक मिला",
+  "Stock left right now. Tap a product to see or edit its details and stock.":"अभी बचा स्टॉक। विवरण या स्टॉक बदलने के लिए प्रोडक्ट पर टैप करें।","Stock left":"बचा स्टॉक","Only one size? Leave it empty.":"एक ही साइज़? खाली छोड़ दें।",
+  "To change the quantity, use Stock in, B2B sale or Self use on the Scan page.":"मात्रा बदलने के लिए स्कैन पेज पर स्टॉक इन, B2B बिक्री या स्टूडियो उपयोग करें।",
+  "Stock left right now. Tap a product to see or edit its details and stock.":"अभी बचा स्टॉक। विवरण देखने या बदलने के लिए प्रोडक्ट पर टैप करें। मात्रा सिर्फ़ स्कैन पेज से बदलती है।","Low stock":"कम स्टॉक","Copy details":"विवरण कॉपी","is in another store":"दूसरे स्टोर में है","written off":"राइट-ऑफ़ हुआ",
   "Scan or pick products to build the list.":"लिस्ट बनाने के लिए प्रोडक्ट स्कैन करें या चुनें।","Scan or pick products, or upload the bill PDF.":"प्रोडक्ट स्कैन करें, चुनें या बिल PDF अपलोड करें।",
   "A simple stock-out for material used in the studio.":"स्टूडियो में इस्तेमाल हुए माल का सीधा स्टॉक-आउट।","Size":"साइज़","Pieces per carton":"एक कार्टन में कितने","Warn when stock is at":"इतना बचे तो अलर्ट","Add another size":"एक और साइज़ जोड़ें","Add another size of this product":"इस प्रोडक्ट का एक और साइज़ जोड़ें","Will create":"ये बनेंगे","Save products":"प्रोडक्ट सेव करें","products saved":"प्रोडक्ट सेव हुए",
   "Brand / company":"ब्रांड / कंपनी","Invoice / bill no.":"इनवॉइस / बिल नं.","Customer name":"ग्राहक का नाम","Type or pick a customer":"ग्राहक टाइप करें या चुनें",
@@ -1764,6 +1814,13 @@ let sheetClose = null;
 function openSheet(html, onClose){ $("#sheet").innerHTML = html; $("#modal").classList.add("show"); sheetClose = onClose || null; }
 function closeSheet(){ $("#modal").classList.remove("show"); const f = sheetClose; sheetClose = null; if (f) f(); }
 $("#modal").addEventListener("click", e => { if (e.target.id === "modal") closeSheet(); });
+// iPhone: keep pop-ups above the on-screen keyboard and the box being typed in visible
+if (window.visualViewport){
+  const fitModal = () => { const m = document.getElementById("modal"), vv = window.visualViewport;
+    m.style.top = vv.offsetTop + "px"; m.style.height = vv.height + "px"; document.documentElement.style.setProperty("--vvh", vv.height + "px"); };
+  visualViewport.addEventListener("resize", fitModal); visualViewport.addEventListener("scroll", fitModal); fitModal();
+}
+$("#sheet").addEventListener("focusin", e => { if (e.target.matches("input, textarea, select")) setTimeout(() => e.target.scrollIntoView({block: "center", behavior: "smooth"}), 350); });
 function confirmBox(title, msg, okLabel, onOk, danger){
   openSheet(`<h3>${esc(title)}</h3><div style="margin:8px 0 16px;color:var(--mute)">${msg}</div>
     <div class="row"><button class="btn" id="cNo" style="flex:1">${T("Cancel")}</button><button class="btn ${danger?"danger":"dark"}" id="cYes" style="flex:1">${esc(okLabel)}</button></div>`);
@@ -1811,6 +1868,13 @@ const typeLbl = e => e.type === "in" ? "IN" : e.type === "adj" ? "ADJ" : isSelf(
 const isRoll = pid => !!S.products[pid]?.rolls;     // PPF: every roll has its own Roll ID
 const rollKey = id => String(id||"").trim().toUpperCase().replace(/\s+/g, "");
 const rollDoc = id => S.rolls[safeId(rollKey(id))];
+// oldest first, so rolls leave in the order they arrived
+const rollsFifo = (pid, dep) => Object.values(S.rolls).filter(r => r.pid === pid && r.status === "in" && (!dep || r.depot === dep))
+  .sort((a, b) => (a.inAt || 0) - (b.inAt || 0) || String(a.id).localeCompare(String(b.id))).map(r => r.id);
+function assignRolls(c, dep){
+  const pinned = (c.pinned || []).filter(id => { const r = rollDoc(id); return r && r.pid === c.pid && r.status === "in" && r.depot === dep; });
+  return [...pinned, ...rollsFifo(c.pid, dep).filter(id => !pinned.includes(id))].slice(0, c.qty);
+}
 const rollsInStock = (pid, dep) => Object.values(S.rolls).filter(r => r.pid === pid && r.status === "in" && (!dep || r.depot === dep)).map(r => r.id).sort();
 const money = n => "₹" + Number(n||0).toLocaleString("en-IN", {maximumFractionDigits: 2});
 const lastRate = pid => { const d = S.dealers[S.f.b2b.dealerId]; const r = d?.rates?.[pid]; return r == null ? null : Number(r); };
@@ -2044,12 +2108,16 @@ $("#meBtn").onclick = () => {
       <div class="hint" id="mInstallHint" hidden style="margin:0">${ios ? "On iPhone: tap the Share button in Safari, then <b>Add to Home Screen</b>." : "Open your browser menu (⋮) and tap <b>Install app</b> or <b>Add to Home screen</b>."}</div>
       <button class="btn" id="mHelp">❓ ${T("Help guide")}</button>
       <label class="switch" style="padding:6px 2px"><input type="checkbox" id="mBeep" ${LS.get("beep", true)?"checked":""}> Beep on scan</label>
+      <button class="btn" id="mLang">🌐 ${lang === "hi" ? "English" : "हिंदी"}</button>
       <button class="btn danger" id="mOut">${T("Sign out")}</button>
+      <button class="btn dark" id="mClose">${T("Close")}</button>
     </div>`);
   $("#mInstall").onclick = async () => { if (installEvt){ installEvt.prompt(); installEvt = null; closeSheet(); } else $("#mInstallHint").hidden = false; };
   $("#mHelp").onclick = () => { closeSheet(); showHelp(); };
   $("#mBeep").onchange = e => { LS.set("beep", e.target.checked); unlockAudio(); };
   $("#mOut").onclick = async () => { closeSheet(); stopAll(); await signOut(auth); };
+  $("#mLang").onclick = () => { closeSheet(); $("#langBtn").click(); };
+  $("#mClose").onclick = closeSheet;
 };
 $("#helpBtn").onclick = () => showHelp();
 
@@ -2117,7 +2185,7 @@ function addCode(raw){
   const code = String(raw).trim();
   // a PPF roll's own ID: going out → add that roll
   if (S.mode === "out"){ const r = rollDoc(code); if (r && r.status === "in"){
-    if (r.depot === curDepot()) return addRolls(r.pid, [r.id]);
+    if (r.depot === curDepot()) return addPinnedRoll(r.pid, r.id);
     beep("bad"); return toast(`${T("Roll")} ${r.id} ${T("is in another store")}: ${depotName(r.depot)}`, true); } }
   const pid = resolveCode(code);
   if (!pid){
@@ -2126,7 +2194,7 @@ function addCode(raw){
     beep("new"); camFlash("new", "? " + code); return unknownCodeSheet(code);
   }
   beep("ok"); camFlash("ok", "✓ " + pname(pid));
-  if (isRoll(pid)) return rollSheet(pid);
+  if (isRoll(pid) && S.mode === "in") return rollSheet(pid);
   const isLabel = code.startsWith(LABEL_PREFIX);
   if (S.mode === "in" || isLabel) return qtySheet(pid);
   // going out with a product barcode: every scan counts +1, never more than the stock
@@ -2135,6 +2203,15 @@ function addCode(raw){
   if ((row ? row.qty : 0) + 1 > have){ beep("bad"); camFlash("bad", `⚠ ${pname(pid)}`); return toast(`${T("Only")} ${qtyText(pid, Math.max(0, have))} ${T("in stock")} · ${pname(pid)}`, true); }
   if (row) row.qty += 1; else { row = {pid, qty:1}; S.cart.unshift(row); fillRate(row); }
   camFlash("ok", `✓ ${pname(pid)} · ${row.qty}`);
+  renderCart(pid); renderTotals();
+}
+function addPinnedRoll(pid, id){
+  let row = S.cart.find(c => c.pid === pid);
+  if ((row?.pinned || []).includes(id)){ beep("bad"); return toast(`${id}: ${T("already in the list")}`, true); }
+  if ((row ? row.qty : 0) + 1 > stockOf(pid, curDepot())){ beep("bad"); return toast(T("No more in stock"), true); }
+  if (!row){ row = {pid, qty: 0, pinned: []}; S.cart.unshift(row); fillRate(row); }
+  row.pinned = [...(row.pinned || []), id]; row.qty += 1;
+  beep("ok"); camFlash("ok", `✓ ${pname(pid)} · ${id}`);
   renderCart(pid); renderTotals();
 }
 function addToCart(pid, n, quiet){
@@ -2213,7 +2290,7 @@ function rollSheet(pid){
 
 /* ---------- quantity box (cartons + loose) ---------- */
 function qtySheet(pid){
-  if (isRoll(pid)) return rollSheet(pid);
+  if (isRoll(pid) && S.mode === "in") return rollSheet(pid);
   pauseCam();
   const p = S.products[pid] || {}, per = perCtn(pid), u = unitOf(pid);
   const row = S.cart.find(c => c.pid === pid), have = stockOf(pid, curDepot());
@@ -2399,7 +2476,7 @@ function renderFields(){
   } else if (k === "b2b"){
     const d = S.dealers[f.dealerId];
     h = `${fld("dealer","Client (business)","Type or pick a client",{req:1,ta:"dealer",after: d ? `<div class="picked">✓ ${esc(d.town||"")}${d.gst?" · GST "+esc(d.gst):""}${d.rates && Object.keys(d.rates).length ? " · " + T("last rates filled in") : ""}</div>` : ""})}
-      <div class="grid2">${fld("phone","Client phone","10-digit mobile",{req:1,type:"tel",extra:'inputmode="tel" maxlength="14"'})}${fld("customer","Customer name","Type or pick a customer",{req:1,ta:"customer"})}</div>
+      <div class="grid2">${fld("phone","Client phone","10-digit mobile",{req:1,type:"tel",extra:'inputmode="tel" maxlength="14"'})}${fld("customer","Customer name","Type or pick",{req:1,ta:"customer"})}</div>
       <div class="grid2">${fld("ref","Bill / invoice no.","Optional")}${fld("via","Dispatch via","Courier, hand delivery…")}</div>
       ${fld("note","Note","Optional")}`;
   } else {
@@ -2481,14 +2558,14 @@ $("#commitBtn").onclick = () => {
     if (!f.customer.trim()) bad.push(["customer", "customer name"]);
   }
   if (bad.length){ bad.forEach(([x]) => $(`#fields [data-f="${x}"]`)?.classList.add("err")); return toast(T("Enter") + ": " + bad.map(b => b[1]).join(", "), true); }
-  const noRoll = S.cart.filter(c => isRoll(c.pid) && (c.rolls || []).length !== c.qty);
+  const noRoll = S.mode === "in" ? S.cart.filter(c => isRoll(c.pid) && (c.rolls || []).length !== c.qty) : [];
   if (noRoll.length) return toast(T("Add a Roll ID for every PPF roll") + ": " + noRoll.map(c => pname(c.pid)).join(", "), true);
   if (k === "b2b"){
     const noRate = S.cart.filter(c => !(Number(c.rate) > 0));
     if (noRate.length) return toast(T("Enter the rate for") + ": " + noRate.map(c => pname(c.pid)).join(", "), true);
   }
   if (S.mode === "out"){
-    const gone = S.cart.flatMap(c => (c.rolls || []).filter(id => { const r = rollDoc(id); return !r || r.status !== "in" || r.depot !== depot; }));
+    const gone = S.cart.flatMap(c => (c.pinned || []).filter(id => { const r = rollDoc(id); return !r || r.status !== "in" || r.depot !== depot; }));
     if (gone.length) return toast(T("These rolls are no longer in stock") + ": " + gone.join(", "), true);
     const short = S.cart.filter(c => c.qty > stockOf(c.pid, depot));
     if (short.length){
@@ -2517,7 +2594,10 @@ function confirmSave(){
   openSheet(`<h3>${T({in:"Confirm stock-in", b2b:"Confirm B2B sale", self:"Confirm self use"}[k])}</h3>
     <div class="hint" style="margin:0 0 10px">${head}${f.ref ? " · #" + esc(f.ref) : ""} · ${esc(depotName(curDepot()))}</div>
     <div style="border:1px solid var(--line);border-radius:16px;padding:0 14px;max-height:50vh;overflow:auto">
-      ${S.cart.map(c => `<div class="confirm-row"><div style="min-width:0"><b>${esc(pname(c.pid))}</b>${(c.rolls||[]).length ? `<div class="rollchips">${c.rolls.map(id => `<span class="chip mono">${esc(id)}</span>`).join("")}</div>` : ""}${b2b ? `<small style="display:block;color:var(--mute);margin-top:3px">${money(c.rate)} × ${fmt(c.qty)} = <b style="color:#fff">${money(Number(c.rate) * c.qty)}</b></small>` : ""}</div>
+      ${S.cart.map(c => `<div class="confirm-row"><div style="min-width:0"><b>${esc(pname(c.pid))}</b>${(() => {
+          const out = S.mode === "out" && isRoll(c.pid), ids = out ? assignRolls(c, curDepot()) : (c.rolls || []);
+          return ids.length ? `${out ? `<small style="display:block;color:var(--mute);margin-top:3px">${T("Rolls going out (oldest first)")}</small>` : ""}<div class="rollchips">${ids.map(id => `<span class="chip mono">${esc(id)}</span>`).join("")}</div>` : "";
+        })()}${b2b ? `<small style="display:block;color:var(--mute);margin-top:3px">${money(c.rate)} × ${fmt(c.qty)} = <b style="color:#fff">${money(Number(c.rate) * c.qty)}</b></small>` : ""}</div>
         <span style="text-align:right"><span class="q" style="color:var(--${mcls()})">${fmt(c.qty)}</span> <small style="font-weight:600;color:var(--mute)">${esc(isRoll(c.pid) ? (c.qty === 1 ? "roll" : "rolls") : unitOf(c.pid))}</small>${perCtn(c.pid) && c.qty >= perCtn(c.pid) ? `<small style="display:block;font-weight:600;color:var(--mute)">${qtyText(c.pid, c.qty).split(" = ")[0]}</small>` : ""}</span></div>`).join("")}
     </div>
     <div style="display:flex;justify-content:space-between;font-weight:800;font-size:18px;margin:12px 2px ${b2b ? 4 : 14}px;color:#fff"><span>${T("Total")}</span><span>${fmt(total)}</span></div>
@@ -2531,7 +2611,7 @@ function commit(){
   const mode = S.mode, kind = fkey(), f = {...S.f[kind]}, depot = curDepot(), now = Date.now();
   const items = S.cart.map(c => {
     const it = {pid: c.pid, name: pname(c.pid), qty: c.qty, unit: unitOf(c.pid)};
-    if (isRoll(c.pid)) it.rolls = [...c.rolls];
+    if (isRoll(c.pid)) it.rolls = mode === "in" ? [...c.rolls] : assignRolls(c, depot);
     if (kind === "b2b"){ it.rate = Number(c.rate); it.amount = Math.round(it.rate * c.qty * 100) / 100; }
     if (kind === "in" && Number(c.cost) > 0) it.cost = Number(c.cost);
     return it;
@@ -2660,6 +2740,16 @@ function productSheet(pid, preset, afterSave){
   const unitSel = `<select id="pUnit" ${dis}>${UNITS.map(u => `<option ${(p.unit || (isNew ? "bottle" : "pcs")) === u ? "selected" : ""}>${u}</option>`).join("")}</select>`;
   openSheet(`<h3>${T(isNew ? "Add product" : "Edit product")}</h3>
     ${preset?.code ? `<div class="hint mono" style="margin:0 0 10px;word-break:break-all">${T("Scanned code")}: ${esc(preset.code)}</div>` : ""}
+    ${isNew ? "" : (() => {
+      const per = Object.entries(S.stock).filter(([sid, st]) => stockPid(sid) === pid && st.qty).map(([sid, st]) => [st.depot, Number(st.qty) || 0]);
+      const total = per.reduce((a, x) => a + x[1], 0), ids = p.rolls ? rollsInStock(pid) : [];
+      return `<div style="border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:0 0 14px;background:#0B0B0B">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span class="lbl" style="margin:0">${T("Stock left")}</span>
+          <span style="font-family:var(--disp);font-size:20px;color:${p.low != null && total <= p.low ? "var(--warn)" : "#fff"}">${qtyText(pid, total)}</span></div>
+        ${depotList().length > 1 && per.length ? `<div class="hint" style="margin:4px 0 0">${per.map(([d, q]) => `${esc(depotName(d))}: ${qtyText(pid, q)}`).join(" · ")}</div>` : ""}
+        ${ids.length ? `<div class="rollchips">${ids.map(id => `<span class="chip mono">${esc(id)}</span>`).join("")}</div>` : ""}
+        ${isSup() ? `<button type="button" class="btn sm" id="pStockEdit" style="margin-top:10px">✎ ${T("Edit stock")}</button>` : `<div class="hint" style="margin:6px 0 0;font-size:12px">${T("To change the quantity, use Stock in, B2B sale or Self use on the Scan page.")}</div>`}</div>`;
+    })()}
     <div class="field"><p class="lbl">${T("Product name")} <span class="req">*</span></p><input type="text" id="pName" value="${esc(p.name||"")}" placeholder="${multi ? "e.g. Maple Quick Detailer" : "e.g. Ceramic Coating 9H 50 ml"}" ${dis}></div>
     <div id="pSim"></div>
     ${multi ? `
@@ -2668,15 +2758,16 @@ function productSheet(pid, preset, afterSave){
       <p class="lbl">${T("Sizes")}</p>
       <div class="hint" style="margin:-2px 0 10px">${T("Write each pack size you buy, one per line. The app adds the size to the name and keeps a separate stock for each one.")}</div>
       <div id="pSizes"></div>
-      <div id="pPreview" class="hint" style="margin:4px 0 12px"></div>`
+      <div id="pPreview" class="hint" style="margin:4px 0 8px"></div>
+      <div class="banner info" style="margin:0 0 12px">${T("No quantity here: add stock on the Scan page with Stock in. Carton size and low-stock alert can be set later by tapping the product.")}</div>`
     : `<div class="grid2">
         <div class="field"><p class="lbl">${T("Pack / size")}</p><input type="text" id="pPack" value="${esc(p.pack||"")}" placeholder="50 ml" ${dis}></div>
         <div class="field"><p class="lbl">${T("Counted in")}</p>${unitSel}</div>
       </div>
-      <div class="grid2">
-        <div class="field"><p class="lbl">${T("Per carton")}</p><input type="number" inputmode="numeric" id="pPer" min="0" value="${esc(p.perCarton ?? "")}" placeholder="e.g. 12 (blank = no carton)" ${dis}></div>
-        <div class="field"><p class="lbl">${T("Low-stock alert at")}</p><input type="number" inputmode="numeric" id="pLow" min="0" value="${esc(p.low ?? "")}" placeholder="e.g. 10" ${dis}></div>
-      </div>
+      ${isNew ? "" : `<div class="grid2">
+        ${p.rolls ? "" : `<div class="field"><p class="lbl">${T("Pieces per carton")}</p><input type="number" inputmode="numeric" id="pPer" min="0" value="${esc(p.perCarton ?? "")}" placeholder="${esc(T("Blank = no cartons"))}" ${dis}></div>`}
+        <div class="field"><p class="lbl">${T("Warn when stock is at")}</p><input type="number" inputmode="numeric" id="pLow" min="0" value="${esc(p.low ?? "")}" placeholder="${esc(T("Blank = no alert"))}" ${dis}></div>
+      </div>`}
       <label class="switch" style="margin:2px 0 14px"><input type="checkbox" id="pRolls" ${p.rolls ? "checked" : ""} ${dis}> ${T("PPF roll — counted in rolls, with a Roll ID for every roll")}</label>`}
     ${!isNew && canEdit ? `<button type="button" class="btn sm" id="pMore" style="margin:-4px 0 14px">+ ${T("Add another size of this product")}</button>` : ""}
     ${!isNew ? `<p class="lbl" style="margin-top:4px">${T("Linked codes")}</p>
@@ -2697,19 +2788,11 @@ function productSheet(pid, preset, afterSave){
   // ---- sizes (new products only)
   const drawSizes = () => {
     if (!multi) return;
-    const roll = rollsOn();
-    const cols = roll ? "1.5fr 1fr 34px" : "1.3fr 1fr 1fr 34px";
-    const head = `<div style="display:grid;grid-template-columns:${cols};gap:6px;margin-bottom:4px">
-      <span class="lbl" style="margin:0;font-size:9.5px">${T("Size")}</span>
-      ${roll ? "" : `<span class="lbl" style="margin:0;font-size:9.5px">${T("Pieces per carton")}</span>`}
-      <span class="lbl" style="margin:0;font-size:9.5px">${T("Warn when stock is at")}</span><span></span></div>`;
-    $("#pSizes").innerHTML = head + sizes.map((z, i) => `<div style="display:grid;grid-template-columns:${cols};gap:6px;margin-bottom:6px;align-items:center">
-        <input type="text" data-zs="${i}" value="${esc(z.size)}" placeholder="${esc(i === 0 ? "e.g. 1L" : i === 1 ? "e.g. 5L" : "e.g. 20L")}" style="padding:10px 12px">
-        ${roll ? "" : `<input type="number" inputmode="numeric" min="0" data-zp="${i}" value="${esc(z.per)}" placeholder="${esc(T("e.g. 12"))}" style="padding:10px 12px">`}
-        <input type="number" inputmode="numeric" min="0" data-zl="${i}" value="${esc(z.low)}" placeholder="${esc(T("e.g. 5"))}" style="padding:10px 12px">
-        ${sizes.length > 1 ? `<button type="button" data-zx="${i}" aria-label="${esc(T("Remove this size"))}" style="width:34px;height:34px;border-radius:50%;border:1px solid rgba(240,68,74,.5);background:none;color:var(--out);cursor:pointer">✕</button>` : "<span></span>"}
+    $("#pSizes").innerHTML = sizes.map((z, i) => `<div class="row" style="margin-bottom:6px">
+        <input type="text" data-zs="${i}" value="${esc(z.size)}" placeholder="${esc(i === 0 ? T("Size, e.g. 1L") : i === 1 ? T("Size, e.g. 5L") : T("Size, e.g. 20L"))}" style="flex:1">
+        ${sizes.length > 1 ? `<button type="button" data-zx="${i}" aria-label="${esc(T("Remove this size"))}" style="flex:none;width:38px;height:38px;border-radius:50%;border:1px solid rgba(240,68,74,.5);background:none;color:var(--out);cursor:pointer">✕</button>` : ""}
       </div>`).join("") + `<button type="button" class="btn sm" id="pAddSize" style="margin:2px 0 4px">+ ${T("Add another size")}</button>
-      <div class="hint" style="margin:6px 0 0;font-size:12px">${T("Only one size? Leave Size empty. The two number boxes are optional.")}</div>`;
+      <div class="hint" style="margin:6px 0 0;font-size:12px">${T("Only one size? Leave it empty.")}</div>`;
     $("#pAddSize").onclick = () => { const last = sizes[sizes.length - 1] || {}; sizes.push({size: "", per: last.per || "", low: last.low || ""}); drawSizes(); $("#pSizes").querySelector(`[data-zs="${sizes.length - 1}"]`)?.focus(); };
     drawPreview();
   };
@@ -2746,6 +2829,7 @@ function productSheet(pid, preset, afterSave){
     sheetClose = null; closeSheet();
     productSheet(null, {name: base, unit: p.unit, rolls: p.rolls, sizes: [{size: "", per: p.perCarton ? String(p.perCarton) : "", low: p.low != null ? String(p.low) : ""}]});
   };
+  if ($("#pStockEdit")) $("#pStockEdit").onclick = () => { sheetClose = null; closeSheet(); stockEditSheet(pid); };
   if ($("#pLabel")) $("#pLabel").onclick = () => { sheetClose = null; closeSheet(); labelsSheet([pid]); };
   $("#sheet").querySelectorAll("[data-rmcode],[data-rmpre]").forEach(b => b.onclick = () => {
     const c = b.dataset.rmcode, pre = b.dataset.rmpre;
@@ -2781,7 +2865,7 @@ function productSheet(pid, preset, afterSave){
       if (sim.length) return confirmBox(T("Looks similar to"), sim.map(x => `• <b>${esc(x.name)}</b>`).join("<br>") + `<br><br>${T("Create it anyway?")}`, T("Create anyway"), save);
       return save();
     }
-    const per = num($("#pPer").value), low = $("#pLow").value === "" ? null : Math.max(0, Number($("#pLow").value));
+    const per = $("#pPer") ? num($("#pPer").value) : (p.perCarton ?? null), low = $("#pLow") ? ($("#pLow").value === "" ? null : Math.max(0, Number($("#pLow").value))) : (p.low ?? null);
     if (!isNew && !!p.rolls !== rolls && Object.entries(S.stock).some(([sid, st]) => stockPid(sid) === pid && st.qty)) return toast(T("This product has stock — the PPF roll setting can only change when its stock is zero"), true);
     const data = {name, pack: $("#pPack").value.trim(), unit, perCarton: rolls ? null : (per > 1 ? per : null), low, rolls, updated: Date.now(), by: S.me.email};
     const save = () => {
@@ -2985,16 +3069,18 @@ function renderTotals(){
 }
 function renderCart(flash){
   const dep = curDepot(), b2b = fkey() === "b2b";
+  S.cart.forEach(c => { if (c.pinned && c.pinned.length > c.qty) c.pinned = c.pinned.slice(0, c.qty); });
   $("#cart").innerHTML = S.cart.length ? S.cart.map(c => {
     const have = stockOf(c.pid, dep), over = S.mode === "out" && c.qty > have, per = perCtn(c.pid), roll = isRoll(c.pid);
     const last = b2b ? lastRate(c.pid) : null, rate = Number(c.rate), low = b2b && last != null && rate > 0 && rate < last;
     return `<div class="item ${c.pid===flash?"flash":""}">
       <div class="nm"><b>${esc(pname(c.pid))}</b><small>${roll ? `${fmt(c.qty)} ${T(c.qty === 1 ? "roll" : "rolls")} · ` : per && c.qty >= per ? `<b style="color:#fff;display:inline">${qtyText(c.pid, c.qty).split(" = ")[0]}</b> · ` : ""}${T("stock")} ${fmt(have)}</small>
       ${over ? ` <span class="pill low">${T("short")}</span>` : ""}
-      ${roll ? `<div class="rollchips">${(c.rolls||[]).map(id => `<span class="chip mono">${esc(id)}</span>`).join("")}</div>` : ""}
+      ${roll && S.mode === "in" ? `<div class="rollchips">${(c.rolls||[]).map(id => `<span class="chip mono">${esc(id)}</span>`).join("")}</div>`
+        : roll && (c.pinned||[]).length ? `<div class="rollchips">${c.pinned.map(id => `<span class="chip mono">${esc(id)}</span>`).join("")}</div>` : ""}
       ${b2b ? `<div class="raterow"><input type="number" inputmode="decimal" min="0" step="0.01" data-rate="${esc(c.pid)}" value="${esc(c.rate ?? "")}" placeholder="₹ ${esc(T("Rate"))}"><small>/ ${esc(roll ? "roll" : unitOf(c.pid))}${rate > 0 ? ` = <b style="color:#fff">${money(rate * c.qty)}</b>` : ""}</small>${last != null ? `<small class="${low ? "lowrate" : ""}">${low ? "⚠ " : ""}${T("last")} ${money(last)}</small>` : ""}</div>` : ""}
       </div>
-      ${roll ? `<button class="btn sm" data-act="rolls" data-pid="${esc(c.pid)}">${T("Rolls")}</button>`
+      ${roll && S.mode === "in" ? `<button class="btn sm" data-act="rolls" data-pid="${esc(c.pid)}">${T("Rolls")}</button>`
         : `<div class="qty"><button data-act="dec" data-pid="${esc(c.pid)}">−</button><input type="number" inputmode="numeric" data-pid="${esc(c.pid)}" value="${c.qty}"><button data-act="inc" data-pid="${esc(c.pid)}">+</button></div>
       ${per ? `<button class="btn sm" data-act="edit" data-pid="${esc(c.pid)}" title="Cartons">📦</button>` : ""}`}
     </div>`;
@@ -3013,18 +3099,17 @@ function renderStock(){
   const isLow = r => r.low != null && r.qty <= r.low;
   const rows = stockRows(dep).filter(r => !q || normName(r.name + " " + r.pack + " " + (isRoll(r.pid) ? rollsInStock(r.pid, dep === "all" ? "" : dep).join(" ") : "")).includes(normName(q)))
     .sort((a, b) => isLow(b) - isLow(a));
-  $("#stockActions").hidden = !isAdmin();
   $("#stockList").innerHTML = rows.length ? rows.map(r => {
     const low = r.low != null && r.qty <= r.low, per = perCtn(r.pid), roll = isRoll(r.pid);
     const ids = roll ? rollsInStock(r.pid, dep === "all" ? "" : dep) : [];
-    return `<div class="item ${isSup()?"tap":""}" data-spid="${esc(r.pid)}"><div class="nm"><b>${esc(r.name)}</b><small>${esc(r.pack)}${per ? `${r.pack ? " · " : ""}${qtyText(r.pid, r.qty).split(" = ")[0]}` : ""}</small>${low ? ` <span class="pill low">${T("low stock")}</span>` : ""}
+    return `<div class="item tap" data-spid="${esc(r.pid)}"><div class="nm"><b>${esc(r.name)}</b><small>${esc(r.pack)}${per ? `${r.pack ? " · " : ""}${qtyText(r.pid, r.qty).split(" = ")[0]}` : ""}</small>${low ? ` <span class="pill low">${T("low stock")}</span>` : ""}
       ${ids.length ? `<div class="rollchips">${ids.slice(0, 8).map(id => `<span class="chip mono">${esc(id)}</span>`).join("")}${ids.length > 8 ? `<span class="chip">+${ids.length - 8}</span>` : ""}</div>` : ""}</div>
       <div class="stockn ${low?"low":""}">${fmt(r.qty)}<small style="display:block;font-size:10px;font-family:Manrope,sans-serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)">${esc(roll ? (r.qty === 1 ? "roll" : "rolls") : unitOf(r.pid))}</small></div></div>`;
   }).join("") : `<div class="empty">${T(q ? "No match." : "No stock yet.")}</div>`;
 }
 $("#stockList").addEventListener("click", e => {
   const r = e.target.closest("[data-spid]"); if (!r) return;
-  if (isAdmin()) adjustSheet(r.dataset.spid); else if (isSup()) productSheet(r.dataset.spid);
+  productSheet(r.dataset.spid);
 });
 
 function filteredHist(){
@@ -3114,110 +3199,72 @@ $("#tab-summary").addEventListener("click", e => {
   confirmBox("Download Excel?", `${esc(r.label)} · ${r.es.length} ${T("entries")}`, "Download", () => saveXlsx(name, [["Entries", entryRows(r.es)]]));
 });
 
-/* ---------- opening stock & adjustments (Admin) ---------- */
-const ADJ_REASONS = ["Opening stock", "Damaged / expired", "Return from client", "Count correction", "Demo / sample use", "Other"];
-function saveAdjustment(items, reason, note){
-  const dep = curDepot(), now = Date.now(), b = writeBatch(db);
+/* ---------- Edit stock (Admin / Supervisor) — shows in History as ADJ ---------- */
+const ADJ_DOWN = ["Damaged / expired", "Leaked / spilled", "Lost / missing", "Count correction", "Used as sample / demo", "Return to supplier", "Other"];
+const ADJ_UP = ["Count correction", "Found extra stock", "Return from client", "Other"];
+function saveAdjustment(items, reason, note, dep){
+  const now = Date.now(), b = writeBatch(db);
   const entry = { type: "adj", ts: now, day: dayKey(now), month: monthKey(now), depot: dep, depotName: depotName(dep), reason, note,
-    items, total: items.reduce((a, i) => a + i.qty, 0), pids: items.map(i => i.pid), rolls: items.flatMap(i => i.rolls || []), by: S.me.email, byName: S.me.name, createdAt: serverTimestamp() };
+    items, total: items.reduce((a, i) => a + i.qty, 0), pids: items.map(i => i.pid), rolls: items.flatMap(i => i.rolls || []),
+    by: S.me.email, byName: S.me.name, createdAt: serverTimestamp() };
   const eref = doc(collection(db, "entries"));
   b.set(eref, entry);
   items.forEach(i => (i.rolls || []).forEach(id => b.update(doc(db, "rolls", safeId(id)), {status: "writeoff", outAt: now, outEntry: eref.id, outKind: "adj", outTo: reason})));
   items.forEach(i => b.set(doc(db, "stock", dep + "|" + i.pid), {depot: dep, pid: i.pid, qty: increment(i.qty), updated: now, entry: eref.id}, {merge:true}));
   return b.commit();
 }
-function rollAdjustSheet(pid){
-  const dep = curDepot(), ids = rollsInStock(pid, dep);
-  openSheet(`<h3>${esc(pname(pid))}</h3>
-    <div class="hint" style="margin:0 0 12px">${esc(depotName(dep))} · ${fmt(ids.length)} ${T(ids.length === 1 ? "roll" : "rolls")} ${T("in stock")}. ${T("PPF rolls are added with Stock in (one Roll ID each). Write off a roll here if it is damaged or missing.")}</div>
-    <div style="max-height:40vh;overflow:auto;border:1px solid var(--line);border-radius:16px;padding:0 12px;margin-bottom:12px">
-      ${ids.length ? ids.map(id => `<div class="item"><div class="nm"><b class="mono">${esc(id)}</b><small>${esc([rollDoc(id)?.brand, rollDoc(id)?.invoice ? "#" + rollDoc(id).invoice : "", rollDoc(id)?.inAt ? new Date(rollDoc(id).inAt).toLocaleDateString("en-IN") : ""].filter(Boolean).join(" · "))}</small></div><button class="btn sm danger" data-wo="${esc(id)}">${T("Write off")}</button></div>`).join("") : `<div class="empty">${T("No rolls of this product in stock.")}</div>`}
-    </div>
-    <div class="grid2"><div class="field"><p class="lbl">${T("Reason")}</p><select id="woReason">${["Damaged / expired", "Count correction", "Other"].map(r => `<option>${T(r)}</option>`).join("")}</select></div>
-      <div class="field"><p class="lbl">${T("Note")}</p><input type="text" id="woNote" placeholder="${T("e.g. creased while unrolling")}"></div></div>
-    <div class="row"><button class="btn" id="woEdit">✎ ${T("Edit product")}</button><button class="btn dark" id="woClose" style="flex:1">${T("Close")}</button></div>`);
-  $("#woClose").onclick = closeSheet;
-  $("#woEdit").onclick = () => { closeSheet(); productSheet(pid); };
-  $("#sheet").querySelectorAll("[data-wo]").forEach(b => b.onclick = () => {
-    const id = b.dataset.wo, reason = ["Damaged / expired", "Count correction", "Other"][$("#woReason").selectedIndex], note = $("#woNote").value.trim();
-    if (reason === "Other" && !note) return toast(T("Write a note for 'Other'"), true);
-    confirmBox(T("Write off this roll?"), `<span class="mono">${esc(id)}</span> · ${esc(pname(pid))}`, T("Write off"), async () => {
-      try { await saveAdjustment([{pid, name: pname(pid), qty: -1, unit: "roll", rolls: [id]}], reason, note); toast(`${id} ${T("written off")}`); }
-      catch(err){ toast("Not saved: " + (err.code || err.message), true); }
-    }, true);
-  });
-}
-function adjustSheet(pid){
-  if (isRoll(pid)) return rollAdjustSheet(pid);
-  const dep = curDepot(), have = stockOf(pid, dep), u = unitOf(pid), per = perCtn(pid);
-  openSheet(`<h3>${esc(pname(pid))}</h3>
-    <div class="hint" style="margin:0 0 12px">${esc(depotName(dep))} · ${T("stock")}: <b>${qtyText(pid, have)}</b></div>
-    <div class="subnav" id="adjMode" style="margin-bottom:10px"><button class="on" data-m="set">${T("Set counted quantity")}</button><button data-m="chg">${T("Add / remove")}</button></div>
-    <div id="adjSet"><p class="lbl">${T("Counted in store")} (${esc(u)})</p><input type="number" id="adjCount" inputmode="numeric" min="0" placeholder="${have}" style="font-size:24px;font-weight:700;text-align:center;min-height:56px"></div>
-    <div id="adjChg" hidden><div class="row"><select id="adjSign" style="max-width:120px"><option value="-1">− ${T("Remove")}</option><option value="1">+ ${T("Add")}</option></select>
-      <input type="number" id="adjQty" inputmode="numeric" min="0" placeholder="0" style="font-size:22px;font-weight:700;text-align:center"></div>${per ? `<div class="hint">1 carton = ${per} ${esc(u)}</div>` : ""}</div>
-    <div id="adjDiff" style="font-weight:700;margin:10px 0;min-height:20px"></div>
-    <div class="grid2">
-      <div class="field"><p class="lbl">${T("Reason")} <span class="req">*</span></p><select id="adjReason">${ADJ_REASONS.map(r => `<option>${T(r)}</option>`).join("")}</select></div>
-      <div class="field"><p class="lbl">${T("Note")}</p><input type="text" id="adjNote" placeholder="${T("e.g. 1 bottle leaked")}"></div>
-    </div>
-    <div class="row wrap" style="margin-top:6px">
-      <button class="btn" id="adjEdit">✎ ${T("Edit product")}</button>
-      <button class="btn" id="adjCancel" style="flex:1">${T("Cancel")}</button>
-      <button class="btn dark" id="adjSave" style="flex:2">${T("Save adjustment")}</button>
-    </div>`);
-  let m = "set";
-  const diff = () => m === "set" ? ($("#adjCount").value === "" ? null : Math.max(0, Math.floor(Number($("#adjCount").value))) - have)
-    : ($("#adjQty").value === "" ? null : Number($("#adjSign").value) * Math.max(0, Math.floor(Number($("#adjQty").value))));
-  const show = () => { const d = diff(); $("#adjDiff").innerHTML = d == null ? "" : d === 0 ? T("No change") :
-    `<span style="color:${d < 0 ? "var(--warn)" : "var(--in)"}">${d > 0 ? "+" : ""}${fmt(d)} ${esc(u)}</span> → ${T("new stock")} ${fmt(have + d)}${have + d < 0 ? ` <span class="pill low">${T("below zero")}</span>` : ""}`; };
-  $("#adjMode").onclick = e => { const b = e.target.closest("[data-m]"); if (!b) return; m = b.dataset.m; $$("#adjMode button").forEach(x => x.classList.toggle("on", x === b)); $("#adjSet").hidden = m !== "set"; $("#adjChg").hidden = m === "set"; show(); };
-  ["#adjCount","#adjQty","#adjSign"].forEach(s => $(s).addEventListener("input", show));
-  $("#adjCancel").onclick = closeSheet;
-  $("#adjEdit").onclick = () => { closeSheet(); productSheet(pid); };
-  $("#adjSave").onclick = async () => {
-    const d = diff();
-    if (!d) return toast(T("Enter a quantity that changes the stock"), true);
-    if (have + d < 0) return toast(T("Stock can't go below zero"), true);
-    const reason = ADJ_REASONS[$("#adjReason").selectedIndex], note = $("#adjNote").value.trim();
-    if (reason === "Other" && !note) return toast(T("Write a note for 'Other'"), true);
+function stockEditSheet(pid, depIn){
+  if (!isSup()) return;
+  const deps = depotList(), sd = $("#stockDepot")?.value, roll = isRoll(pid), u = unitOf(pid);
+  const dep = depIn || (sd && sd !== "all" ? sd : curDepot());
+  const have = stockOf(pid, dep), avail = roll ? rollsFifo(pid, dep) : [];
+  let picked = [];
+  openSheet(`<h3>✎ ${T("Edit stock")}</h3>
+    <div class="hint" style="margin:0 0 12px"><b style="color:#fff">${esc(pname(pid))}</b>${deps.length > 1 ? "" : " · " + esc(depotName(dep))}</div>
+    ${deps.length > 1 ? `<div class="field"><p class="lbl">${T("Store")}</p><select id="seDep">${deps.map(d => `<option value="${esc(d.id)}" ${d.id === dep ? "selected" : ""}>${esc(d.name)}</option>`).join("")}</select></div>` : ""}
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 2px 12px"><span class="lbl" style="margin:0">${T("Stock now")}</span><span style="font-family:var(--disp);font-size:20px;color:#fff">${qtyText(pid, have)}</span></div>
+    ${roll ? `<p class="lbl">${T("Tick the rolls to remove")}</p>
+      <div style="max-height:34vh;overflow:auto;border:1px solid var(--line);border-radius:14px;padding:0 12px;margin-bottom:8px">${avail.length ? avail.map(id => `<label class="switch rollrow"><input type="checkbox" data-seroll="${esc(id)}"> <span class="mono">${esc(id)}</span><small style="margin-left:auto;color:var(--mute)">${rollDoc(id)?.inAt ? new Date(rollDoc(id).inAt).toLocaleDateString("en-IN", {day:"2-digit", month:"short"}) : ""}</small></label>`).join("") : `<div class="empty">${T("No rolls of this product in stock.")}</div>`}</div>
+      <div class="hint" style="margin:0 0 12px">${T("To add PPF rolls, use Stock in on the Scan page — every roll needs a Roll ID.")}</div>`
+    : `<div class="field"><p class="lbl">${T("Correct stock count")} (${esc(u)})</p><input type="number" id="seQty" inputmode="numeric" min="0" value="${have}" style="font-size:24px;font-weight:700;text-align:center;min-height:58px"></div>`}
+    <div id="seDiff" style="font-weight:800;font-size:16px;margin:0 2px 12px;min-height:22px"></div>
+    <div class="field"><p class="lbl">${T("Reason")} <span class="req" id="seReq"></span></p><select id="seReason"></select></div>
+    <div class="field"><p class="lbl">${T("Note")}</p><input type="text" id="seNote" placeholder="${esc(T("e.g. 1 bottle leaked in the store"))}"></div>
+    <div class="row"><button type="button" class="btn" id="seCancel" style="flex:1">${T("Cancel")}</button><button type="button" class="btn dark" id="seSave" style="flex:2">${T("Save stock")}</button></div>`);
+  if ($("#seDep")) $("#seDep").onchange = e => { closeSheet(); stockEditSheet(pid, e.target.value); };
+  const diff = () => roll ? -picked.length : Math.max(0, Math.floor(Number($("#seQty").value) || 0)) - have;
+  let lastDir = null;
+  const update = () => {
+    const d = diff(), dir = d < 0 ? "down" : d > 0 ? "up" : "none";
+    $("#seDiff").innerHTML = d ? `<span style="color:${d < 0 ? "var(--warn)" : "var(--in)"}">${d > 0 ? "+" : "−"}${qtyText(pid, Math.abs(d))}</span> <span style="color:var(--mute);font-weight:600;font-size:13px">→ ${T("new stock")} ${qtyText(pid, have + d)}</span>` : `<span style="color:var(--mute);font-weight:600;font-size:13px">${T("No change yet")}</span>`;
+    if (dir === lastDir) return;
+    lastDir = dir;
+    const keep = $("#seReason").value, list = dir === "down" ? ADJ_DOWN : ADJ_UP;
+    $("#seReason").innerHTML = `<option value="">${esc(T(dir === "down" ? "Pick a reason" : "No reason (optional)"))}</option>` + list.map(r => `<option value="${esc(r)}" ${r === keep ? "selected" : ""}>${esc(T(r))}</option>`).join("");
+    $("#seReq").textContent = dir === "down" ? "* " + T("required when removing stock") : "";
+  };
+  update();
+  if ($("#seQty")) $("#seQty").addEventListener("input", update);
+  $("#sheet").querySelectorAll("[data-seroll]").forEach(cb => cb.onchange = () => { const id = cb.dataset.seroll; picked = cb.checked ? [...picked, id] : picked.filter(x => x !== id); update(); });
+  $("#seReason").addEventListener("change", () => $("#seReason").classList.remove("err"));
+  $("#seCancel").onclick = closeSheet;
+  $("#seSave").onclick = () => {
+    const d = diff(), reason = $("#seReason").value, note = $("#seNote").value.trim();
+    if (!d) return toast(T(roll ? "Tick the rolls to remove" : "The count is the same as the stock now"), true);
+    if (d < 0 && !reason){ $("#seReason").classList.add("err"); return toast(T("A reason is needed to remove stock"), true); }
+    if (reason === "Other" && !note){ $("#seNote").classList.add("err"); return toast(T("Write a note for 'Other'"), true); }
+    const item = {pid, name: pname(pid), qty: d, unit: u};
+    if (roll) item.rolls = [...picked];
     closeSheet();
-    try { await saveAdjustment([{pid, name: pname(pid), qty: d, unit: u}], reason, note); toast(`${T("Adjusted")} ${pname(pid)} ${d > 0 ? "+" : ""}${fmt(d)}`); }
-    catch(err){ toast("Not saved: " + (err.code === "permission-denied" ? "stock can't go below zero, or you are not Admin" : err.message), true); }
+    saveAdjustment([item], reason, note, dep).catch(err => toast("Not saved: " + (err.code || err.message), true));
+    toast(`${T("Stock updated")}: ${pname(pid)} ${d > 0 ? "+" : "−"}${qtyText(pid, Math.abs(d))}`);
   };
 }
-function openingSheet(){
-  const dep = curDepot(), list = Object.entries(S.products).filter(([pid]) => !isRoll(pid)).sort((a, b) => a[1].name.localeCompare(b[1].name));
-  if (!list.length) return toast(T("Add your products first (Settings → Products)"), true);
-  openSheet(`<h3>${T("Opening stock")}</h3>
-    <div class="hint" style="margin:0 0 10px">${esc(depotName(dep))}. ${T("Type what is physically in the store right now. Leave blank to keep a product as it is.")} ${T("PPF rolls aren't listed here: add them with Stock in, one Roll ID each.")}</div>
-    <div style="max-height:56vh;overflow:auto;border:1px solid var(--line);border-radius:16px;padding:0 12px">
-      ${list.map(([pid, p]) => { const per = perCtn(pid); return `<div class="item"><div class="nm"><b>${esc(p.name)}</b><small>${T("now")}: ${qtyText(pid, stockOf(pid, dep))}</small></div>
-        ${per ? `<input type="number" inputmode="numeric" min="0" data-octn="${esc(pid)}" placeholder="ctn" style="width:64px;min-height:38px;padding:6px;text-align:center">` : ""}
-        <input type="number" inputmode="numeric" min="0" data-opcs="${esc(pid)}" placeholder="${esc(unitOf(pid))}" style="width:${per ? 64 : 90}px;min-height:38px;padding:6px;text-align:center"></div>`; }).join("")}
-    </div>
-    <div class="row" style="margin-top:12px"><button class="btn" id="opCancel" style="flex:1">${T("Cancel")}</button><button class="btn dark" id="opSave" style="flex:2">${T("Save opening stock")}</button></div>`);
-  $("#opCancel").onclick = closeSheet;
-  $("#opSave").onclick = () => {
-    const items = [];
-    list.forEach(([pid]) => {
-      const c = $(`#sheet [data-octn="${CSS.escape(pid)}"]`), pc = $(`#sheet [data-opcs="${CSS.escape(pid)}"]`);
-      if ((c ? c.value === "" : true) && pc.value === "") return;
-      const counted = (c ? Math.max(0, Math.floor(Number(c.value)||0)) * perCtn(pid) : 0) + Math.max(0, Math.floor(Number(pc.value)||0));
-      const d = counted - stockOf(pid, dep);
-      if (d) items.push({pid, name: pname(pid), qty: d, unit: unitOf(pid)});
-    });
-    if (!items.length) return toast(T("Nothing to change"), true);
-    confirmBox(T("Save opening stock?"), items.map(i => `${esc(i.name)}: <b>${i.qty > 0 ? "+" : ""}${fmt(i.qty)}</b>`).join("<br>"), T("Save"), async () => {
-      try { await saveAdjustment(items, "Opening stock", ""); toast(T("Opening stock saved")); }
-      catch(err){ toast("Not saved: " + (err.code || err.message), true); }
-    });
-  };
-}
-$("#openingBtn").onclick = () => openingSheet();
+
+/* ---------- stock edits show in History as ADJ ---------- */
 function adjDetailSheet(e){
   openSheet(`<h3><span class="pill adj">ADJ</span> ${when(e.ts)}</h3>
-    <div class="hint" style="margin:4px 0 10px">${esc(T(e.reason || ""))}${e.note ? " · " + esc(e.note) : ""} · ${esc(e.depotName || depotName(e.depot))} · ${esc(e.byName || e.by || "")}</div>
+    <div class="hint" style="margin:4px 0 10px">${esc(T(e.reason || "Stock edit"))}${e.note ? " · " + esc(e.note) : ""} · ${esc(e.depotName || depotName(e.depot))} · ${esc(e.byName || e.by || "")}</div>
     ${(e.items||[]).map(i => `<div class="item"><div class="nm"><b>${esc(i.name)}</b>${(i.rolls||[]).length ? `<div class="rollchips">${i.rolls.map(id => `<span class="chip mono">${esc(id)}</span>`).join("")}</div>` : ""}</div><div class="stockn" style="color:${i.qty < 0 ? "var(--warn)" : "var(--in)"}">${i.qty > 0 ? "+" : ""}${fmt(i.qty)}</div></div>`).join("")}
     <div class="row" style="margin-top:12px">${isAdmin() ? `<button class="btn danger" id="adDel">${T("Delete")}</button>` : ""}<button class="btn dark" id="adClose" style="flex:1">${T("Close")}</button></div>`);
   $("#adClose").onclick = closeSheet;
@@ -3530,8 +3577,8 @@ function renderSettings(){
       Object.entries(S.members).filter(([e]) => e !== OWNER).sort((a,b) => a[0].localeCompare(b[0])).map(([e, m]) => `<div class="item tap" data-mem="${esc(e)}"><div class="nm"><b>${esc(m.name || e)}</b><small>${esc(e)}</small></div><span class="pill ${m.role==="admin"?"blue":m.role==="viewer"?"grey":"in"}">${ROLES[m.role]||m.role}</span></div>`).join("");
     el.innerHTML = listCard(T("Team & roles"), "Only emails listed here can sign in. Role changes apply immediately.", `<button class="btn sm dark" id="addMem">+ ${T("Add member")}</button>`, rows, "") +
       `<div class="card"><h2>Who can do what</h2><table class="tbl rights"><tbody>
-        <tr><td><b>Admin</b></td><td>Everything: team &amp; roles, stores, maintenance, deleting entries, stock corrections and roll write-offs, products and clients.</td></tr>
-        <tr><td><b>Supervisor</b></td><td>Stock in, B2B sales and self use; add and edit products and B2B clients; all reports and Excel. Can't delete entries or change the team.</td></tr>
+        <tr><td><b>Admin</b></td><td>Everything: team &amp; roles, stores, maintenance, deleting entries, editing stock, products and clients.</td></tr>
+        <tr><td><b>Supervisor</b></td><td>Stock in, B2B sales and self use; edit stock (removing needs a reason); add and edit products and B2B clients; all reports and Excel. Can't delete entries or change the team.</td></tr>
         <tr><td><b>Scanner</b></td><td>Stock in (including bill PDFs), B2B sales and self use; fill in a client's phone. Sees stock, history and reports.</td></tr>
         <tr><td><b>Viewer</b></td><td>Sees stock, history and summaries and downloads Excel. Can't change anything.</td></tr>
       </tbody></table><div class="hint">In the live app these rights are enforced by the Firebase security rules, not just hidden on screen. Use "View as" at the top of this demo to try each role.</div></div>`;
@@ -3571,11 +3618,11 @@ function showHelp(){
   openSheet(`<div class="help"><h3>${T("Help guide")}</h3>
     <h4>Stock in</h4><ul><li>Tap <b>Stock in</b>. Scan a product's QR label, tap <b>Pick product from list</b>, or tap <b>Upload bill PDF</b>.</li><li>Type how many arrived (bottles, pieces, cartons + loose).</li><li><b>PPF is counted in rolls, and every roll needs its own Roll ID.</b> Scan the roll's label or type each ID.</li><li><b>Brand / company</b> is required; invoice no. is optional. Check the confirmation screen, then save.</li></ul>
     <h4>Bill PDF</h4><ul><li>Upload the supplier's PDF. The app reads the brand, invoice no. and every line with its quantity.</li><li>Each line is matched to your products. Lines it doesn't know can become new products in one tap; once matched, the same item is recognised on the next bill.</li><li>Nothing goes into stock until you have checked the lines, added Roll IDs for any PPF, and saved the stock-in.</li></ul>
-    <h4>B2B sale</h4><ul><li>Scan or pick each product. For PPF, tick the exact rolls going out (or scan their Roll IDs).</li><li>Pick the <b>client</b> (phone fills in) and enter the <b>customer name</b> — both required.</li><li>Each client's last rate per product fills in automatically. If you enter a <b>lower</b> rate than last time, the app warns you; the same or a higher rate is fine.</li><li>After saving, send the delivery challan with rates on WhatsApp in one tap.</li></ul>
+    <h4>B2B sale</h4><ul><li>Scan or pick each product and type the quantity. For PPF, type the number of rolls; the oldest rolls in stock go out first (scanning a roll's own label picks that exact roll).</li><li>Pick the <b>client</b> (phone fills in) and enter the <b>customer name</b> — both required.</li><li>Each client's last rate per product fills in automatically. If you enter a <b>lower</b> rate than last time, the app warns you; the same or a higher rate is fine.</li><li>After saving, send the delivery challan with rates on WhatsApp in one tap.</li></ul>
     <h4>Self use</h4><p>A simple stock-out for material used in the studio: pick the products and quantities, add a note if you like, and save.</p>
     <p><b>Nothing can go out that isn't in stock</b> — the app won't let you add more than the stock, and PPF rolls must be in stock to be picked.</p>
-    <h4>Corrections (Admin)</h4><p>Stock tab → <b>Opening stock</b> for products already in the store (PPF rolls go through Stock in). Tap a product to correct it; for PPF, write off a specific roll. Each correction needs a reason and shows in History as ADJ.</p>
-    <h4>Reports</h4><ul><li><b>Stock</b>: live quantities and the Roll IDs in stock; amber means at or below the low-stock alert.</li><li><b>History</b>: search by client, customer, bill or Roll ID; tap an entry for the challan.</li><li><b>Summary</b>: a month by product, B2B client (with sales value), store and day. Tap a row for its Excel.</li></ul>
+    <h4>All quantities are entered on the Scan page</h4><ul><li><b>Stock already on the shelf</b> when you start: enter it once with <b>Stock in</b> (PPF with a Roll ID per roll).</li><li><b>Damaged, expired or leaked</b>: record it as <b>Self use</b> with a note like "Damaged".</li><li><b>Edit stock</b> (Admin / Supervisor): Stock tab → tap the product → <b>✎ Edit stock</b> → type the correct count. <b>Removing stock needs a reason</b>; adding doesn't. For PPF, tick the rolls being removed. Every edit shows in History as ADJ with who did it and why.</li><li><b>Entered something wrong?</b> An Admin can also delete that entry in History — stock goes back as if it never happened.</li><li>Adding a product or editing its details never changes its quantity.</li></ul>
+    <h4>Reports</h4><ul><li><b>Stock</b>: stock left and the Roll IDs in stock; amber means at or below the low-stock alert. Tap a product to edit its details.</li><li><b>History</b>: search by client, customer, bill or Roll ID; tap an entry for the challan.</li><li><b>Summary</b>: a month by product, B2B client (with sales value), store and day. Tap a row for its Excel.</li></ul>
     <h4>Roles</h4><p>Admin manages the team under Settings → Team &amp; roles. Supervisors manage products and clients, Scanners record stock, Viewers only look.</p>
     <button class="btn dark" style="width:100%;margin-top:14px" id="hlpClose">${T("Close")}</button></div>`);
   $("#hlpClose").onclick = closeSheet;
