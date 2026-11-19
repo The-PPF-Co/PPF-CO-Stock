@@ -1513,7 +1513,7 @@ details.billtext pre{white-space:pre-wrap;font:11px/1.45 "IBM Plex Mono",monospa
   <!-- SCAN -->
   <section id="tab-scan">
     <div class="kpis">
-      <div class="kpi"><b id="k-units">0</b><span data-t>Units in stock</span></div>
+      <div class="kpi tap" id="kLowBox" title="Open the Stock tab"><b id="k-units">0</b><span data-t>Low stock</span></div>
       <div class="kpi"><b id="k-skus">0</b><span data-t>Products</span></div>
       <div class="kpi"><b id="k-in" style="color:var(--in)">0</b><span data-t>In today</span></div>
       <div class="kpi"><b id="k-out" style="color:var(--out)">0</b><span data-t>Out today</span></div>
@@ -1731,7 +1731,6 @@ function allowed(op, path, nd, od){
     case "products": return op === "delete" ? admin : op === "create" ? sup && open && !!nd.name : open && (sup || (staff && onlyKeys(["billNames","updated"])));
     case "dealers": return op === "delete" ? admin : op === "create" ? sup && open && !!nd.name : open && (sup || (staff && onlyKeys(["phone","customers","lastOut","rates","updated"])));
     case "rolls": return op === "delete" ? admin : op === "create" ? staff && open && nd.status === "in" && !!nd.pid : admin || (staff && open && od.status === "in" && nd.status === "out");
-    case "vehicles": return op === "delete" ? admin : staff && open;
     case "depots": return admin;
     case "stock": return op === "delete" ? admin : staff && open && typeof nd.qty === "number" && nd.qty >= 0;
     case "entries":
@@ -1891,6 +1890,7 @@ function alertToast(m){ const t = document.getElementById("toast"); t.textConten
   setTimeout(() => W.__setUser(ownerEmail, "Owner"), 0);
 })();
 
+W.__dbg = () => ({S, stockOf, rollsInStock, lastRate, depotList, curDepot, parseBill});
 // ===== end preview stand-in =====
 
 
@@ -1966,6 +1966,9 @@ const HI = {
   "Client-wise (B2B)":"क्लाइंट के हिसाब से (B2B)","Service-wise (self use)":"सर्विस के हिसाब से","Car-wise (self use)":"गाड़ी के हिसाब से","Store-wise":"स्टोर के हिसाब से",
   "B2B units sold":"B2B यूनिट बिके","Self-use units":"स्टूडियो उपयोग यूनिट","Cars worked on":"गाड़ियों पर काम","Sales":"बिक्री","Jobs":"जॉब","Units used":"यूनिट लगे","Units":"यूनिट","Last sale":"आख़िरी बिक्री",
   "Supplier / distributor":"सप्लायर / डिस्ट्रीब्यूटर",
+  "Sizes":"साइज़","Low stock":"कम स्टॉक","Copy details":"विवरण कॉपी","is in another store":"दूसरे स्टोर में है","written off":"राइट-ऑफ़ हुआ",
+  "Scan or pick products to build the list.":"लिस्ट बनाने के लिए प्रोडक्ट स्कैन करें या चुनें।","Scan or pick products, or upload the bill PDF.":"प्रोडक्ट स्कैन करें, चुनें या बिल PDF अपलोड करें।",
+  "A simple stock-out for material used in the studio.":"स्टूडियो में इस्तेमाल हुए माल का सीधा स्टॉक-आउट।","Size":"साइज़","Pieces per carton":"एक कार्टन में कितने","Warn when stock is at":"इतना बचे तो अलर्ट","Add another size":"एक और साइज़ जोड़ें","Add another size of this product":"इस प्रोडक्ट का एक और साइज़ जोड़ें","Will create":"ये बनेंगे","Save products":"प्रोडक्ट सेव करें","products saved":"प्रोडक्ट सेव हुए",
   "Brand / company":"ब्रांड / कंपनी","Invoice / bill no.":"इनवॉइस / बिल नं.","Customer name":"ग्राहक का नाम","Type or pick a customer":"ग्राहक टाइप करें या चुनें",
   "Upload bill PDF":"बिल PDF अपलोड करें","Roll ID":"रोल ID","Roll IDs":"रोल ID","roll":"रोल","rolls":"रोल","Rolls":"रोल","Done":"हो गया","Rate":"रेट","last":"पिछला","Bill value":"बिल राशि",
   "Lower rate than last time":"पिछली बार से कम रेट","Last rate":"पिछला रेट","This sale":"इस बार","Use":"रखें","Keep":"यही रखें","Used for / note":"किसलिए / नोट","Studio use":"स्टूडियो उपयोग",
@@ -2072,7 +2075,11 @@ const rollDoc = id => S.rolls[safeId(rollKey(id))];
 const rollsInStock = (pid, dep) => Object.values(S.rolls).filter(r => r.pid === pid && r.status === "in" && (!dep || r.depot === dep)).map(r => r.id).sort();
 const money = n => "₹" + Number(n||0).toLocaleString("en-IN", {maximumFractionDigits: 2});
 const lastRate = pid => { const d = S.dealers[S.f.b2b.dealerId]; const r = d?.rates?.[pid]; return r == null ? null : Number(r); };
-function fillRate(row){ if (fkey() !== "b2b" || (row.rate != null && row.rate !== "")) return; const l = lastRate(row.pid); if (l != null) row.rate = String(l); }
+function fillRate(row){
+  if (fkey() !== "b2b" || (row.rate != null && row.rate !== "" && !row.rateAuto)) return;
+  const l = lastRate(row.pid);
+  row.rate = l != null ? String(l) : ""; row.rateAuto = l != null; row.ackLow = null;
+}
 const cartValue = () => S.cart.reduce((a, c) => a + (Number(c.rate) > 0 ? Number(c.rate) * c.qty : 0), 0);
 const canScan = () => ["admin","supervisor","scanner"].includes(role());
 const isSup = () => ["admin","supervisor"].includes(role());
@@ -2270,7 +2277,7 @@ function applyGate(){
   const mo = $("#maintOff"); if (mo) mo.onclick = ev => { ev.preventDefault(); setDoc(doc(db, "config", "app"), {maintenance:false}, {merge:true}); };
 }
 setInterval(() => { if (S.me && dayKey(Date.now()) !== S.today){ listenToday(); } }, 60000);
-if (configured) onAuthStateChanged(auth, onUser); else gate("setup");
+setTimeout(() => { if (configured) onAuthStateChanged(auth, onUser); else gate("setup"); }, 0);
 
 /* =========================================================
    Tabs & header
@@ -2286,6 +2293,7 @@ $("#nav").addEventListener("click", e => {
   render();
   window.scrollTo(0, 0);
 });
+$("#kLowBox").onclick = () => $('#nav button[data-tab="stock"]').click();
 $("#langBtn").onclick = () => { lang = lang === "hi" ? "en" : "hi"; LS.set("lang", lang); applyStatic(); renderFields(); render(); };
 let installEvt = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
@@ -2369,11 +2377,13 @@ function addCode(raw){
   unlockAudio();
   const code = String(raw).trim();
   // a PPF roll's own ID: going out → add that roll
-  if (S.mode === "out"){ const r = rollDoc(code); if (r && r.status === "in" && r.depot === curDepot()) return addRolls(r.pid, [r.id]); }
+  if (S.mode === "out"){ const r = rollDoc(code); if (r && r.status === "in"){
+    if (r.depot === curDepot()) return addRolls(r.pid, [r.id]);
+    beep("bad"); return toast(`${T("Roll")} ${r.id} ${T("is in another store")}: ${depotName(r.depot)}`, true); } }
   const pid = resolveCode(code);
   if (!pid){
     const r = rollDoc(code);
-    if (r){ beep("bad"); return toast(`${T("Roll")} ${r.id}: ${r.status === "in" ? T("already in stock") : T("already gone out")}`, true); }
+    if (r){ beep("bad"); return toast(`${T("Roll")} ${r.id}: ${r.status === "in" ? T("already in stock") + (r.depot !== curDepot() ? ` (${depotName(r.depot)})` : "") : r.status === "writeoff" ? T("written off") : T("already gone out")}`, true); }
     beep("new"); camFlash("new", "? " + code); return unknownCodeSheet(code);
   }
   beep("ok"); camFlash("ok", "✓ " + pname(pid));
@@ -2587,11 +2597,11 @@ $("#cart").addEventListener("click", e => {
 });
 $("#cart").addEventListener("input", e => {
   const rt = e.target.closest("input[data-rate]"); if (!rt) return;
-  const row = S.cart.find(c => c.pid === rt.dataset.rate); if (row) row.rate = rt.value;
+  const row = S.cart.find(c => c.pid === rt.dataset.rate); if (row){ row.rate = rt.value; row.rateAuto = false; }
 });
 $("#cart").addEventListener("change", e => {
   const rt = e.target.closest("input[data-rate]");
-  if (rt){ const row = S.cart.find(c => c.pid === rt.dataset.rate); if (!row) return; row.rate = rt.value; setTimeout(() => { renderCart(); renderTotals(); checkLowRate(row); }, 0); return; }
+  if (rt){ const row = S.cart.find(c => c.pid === rt.dataset.rate); if (!row) return; row.rate = rt.value; row.rateAuto = false; setTimeout(() => { renderCart(); renderTotals(); checkLowRate(row); }, 0); return; }
   const inp = e.target.closest("input[data-pid]"); if (!inp) return;
   const row = S.cart.find(c => c.pid === inp.dataset.pid); if (!row) return;
   let n = Math.max(0, Math.floor(Number(inp.value)||0));
@@ -2610,7 +2620,7 @@ function checkLowRate(row, then){
     <div style="margin:8px 0 16px;color:var(--mute);line-height:1.7"><b style="color:#fff">${esc(pname(row.pid))}</b> · ${esc(d?.name || "")}<br>
       ${T("Last rate")}: <b style="color:#fff">${money(last)}</b> / ${esc(unitOf(row.pid))}<br>${T("This sale")}: <b style="color:var(--warn)">${money(r)}</b> / ${esc(unitOf(row.pid))}</div>
     <div class="row"><button class="btn" id="lrUse" style="flex:1">${T("Use")} ${money(last)}</button><button class="btn dark" id="lrKeep" style="flex:1">${T("Keep")} ${money(r)}</button></div>`);
-  $("#lrUse").onclick = () => { row.rate = String(last); row.ackLow = null; closeSheet(); renderCart(); renderTotals(); if (then) then(); };
+  $("#lrUse").onclick = () => { row.rate = String(last); row.rateAuto = true; row.ackLow = null; closeSheet(); renderCart(); renderTotals(); if (then) then(); };
   $("#lrKeep").onclick = () => { row.ackLow = r; closeSheet(); renderCart(); if (then) then(); };
 }
 function qtyEditSheet(row){   // change a line's quantity using cartons + loose
@@ -2700,11 +2710,6 @@ function showSugg(inp){
     [...S.todayEntries, ...S.hist, ...S.month].forEach(e => e.type === "in" && e.party && seen.set(e.party.toLowerCase(), e.party));
     LS.get("brands", []).forEach(b => seen.set(b.toLowerCase(), b));
     items = [...seen.values()].filter(b => !q || b.toLowerCase().includes(q)).sort().slice(0, 8).map(b => ({label: b, pick: () => { f.party = b; renderFields(); focusField("ref"); }}));
-  }
-  if (kind === "vehicle"){
-    items = Object.values(S.vehicles).filter(v => !q || [v.plate, v.model, v.owner].join(" ").toLowerCase().includes(q) || plateId(v.plate).toLowerCase().includes(plateId(q).toLowerCase()))
-      .sort((a, b) => (b.lastService||0) - (a.lastService||0)).slice(0, 8)
-      .map(v => ({label:v.plate, sub:[v.model, v.owner].filter(Boolean).join(" · "), pick:() => { f.vehicle = v.plate; if (v.model) f.model = v.model; renderFields(); focusField(f.model ? "ref" : "model"); }}));
   }
   if (!items.length) return;
   const box = document.createElement("div"); box.className = "sugg";
@@ -2807,7 +2812,7 @@ function commit(){
   b.set(eref, entry);
   const agg = {};
   items.forEach(i => agg[i.pid] = (agg[i.pid]||0) + i.qty);
-  Object.entries(agg).forEach(([pid, q]) => b.set(doc(db, "stock", depot + "|" + pid), {depot, pid, qty: increment(sign * q), updated: now}, {merge:true}));
+  Object.entries(agg).forEach(([pid, q]) => b.set(doc(db, "stock", depot + "|" + pid), {depot, pid, qty: increment(sign * q), updated: now, entry: eref.id}, {merge:true}));
   items.forEach(i => (i.rolls || []).forEach(id => {
     const ref = doc(db, "rolls", safeId(id));
     if (mode === "in") b.set(ref, {id, pid: i.pid, depot, status: "in", inAt: now, inEntry: eref.id, brand: entry.party, invoice: entry.ref});
@@ -2875,7 +2880,7 @@ function dispatchSheet(e, justSaved, pending){
     <pre style="white-space:pre-wrap;font:13px/1.5 'Manrope',sans-serif;color:#E6E6E6;background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:8px 0 12px">${esc(t)}</pre>
     <div style="display:grid;gap:8px">
       ${e.type === "out" && !self && e.phone ? `<a class="btn wa" href="${waLink(e.phone, t)}" target="_blank" rel="noopener">${T("WhatsApp client")} · ${esc(e.phone)}</a>` : ""}
-      <button class="btn" id="dsCopy">${T(self ? "Copy job sheet" : "Copy challan")}</button>
+      <button class="btn" id="dsCopy">${T(self || e.type !== "out" ? "Copy details" : "Copy challan")}</button>
       ${!justSaved && isAdmin() ? `<button class="btn danger" id="dsDel">${T("Delete")}</button>` : ""}
       <button class="btn dark" id="dsClose">${T("Close")}</button>
     </div>
@@ -2900,29 +2905,41 @@ function deleteEntry(e){
 }
 
 /* =========================================================
-   Product / dealer / vehicle / depot / member editors
+   Product / client / store / member editors
    ========================================================= */
 const UNITS = ["bottle","ft","roll","can","kit","box","pouch","pack","pcs"];
 function productSheet(pid, preset, afterSave){
   pauseCam();
-  const isNew = !pid, p = pid ? (S.products[pid] || {}) : {name: preset?.name || ""};
+  const isNew = !pid, p = pid ? (S.products[pid] || {}) : {name: preset?.name || "", unit: preset?.unit, rolls: preset?.rolls};
   const canEdit = isSup();
   if (isNew && !canEdit) return toast(T("Only a Supervisor or Admin can add products"), true);
   const dis = canEdit ? "" : "disabled";
+  // a new product can be added in several sizes at once: one product (with its own stock) per size
+  const multi = isNew && !preset?.code && !afterSave;
+  let sizes = multi ? (preset?.sizes || [{size: "", per: "", low: ""}]) : null;
   const codes = [p.code, ...(p.codes || [])].filter(Boolean), pres = p.prefixes || [];
+  const unitSel = `<select id="pUnit" ${dis}>${UNITS.map(u => `<option ${(p.unit || (isNew ? "bottle" : "pcs")) === u ? "selected" : ""}>${u}</option>`).join("")}</select>`;
   openSheet(`<h3>${T(isNew ? "Add product" : "Edit product")}</h3>
     ${preset?.code ? `<div class="hint mono" style="margin:0 0 10px;word-break:break-all">${T("Scanned code")}: ${esc(preset.code)}</div>` : ""}
-    <div class="field"><p class="lbl">${T("Product name")} <span class="req">*</span></p><input type="text" id="pName" value="${esc(p.name||"")}" placeholder="e.g. Ceramic Coating 9H 50 ml" ${dis}></div>
+    <div class="field"><p class="lbl">${T("Product name")} <span class="req">*</span></p><input type="text" id="pName" value="${esc(p.name||"")}" placeholder="${multi ? "e.g. Maple Quick Detailer" : "e.g. Ceramic Coating 9H 50 ml"}" ${dis}></div>
     <div id="pSim"></div>
-    <div class="grid2">
-      <div class="field"><p class="lbl">${T("Pack / size")}</p><input type="text" id="pPack" value="${esc(p.pack||"")}" placeholder="50 ml" ${dis}></div>
-      <div class="field"><p class="lbl">${T("Counted in")}</p><select id="pUnit" ${dis}>${UNITS.map(u => `<option ${ (p.unit||(isNew?"bottle":"pcs")) === u ? "selected" : ""}>${u}</option>`).join("")}</select></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><p class="lbl">${T("Per carton")}</p><input type="number" inputmode="numeric" id="pPer" min="0" value="${esc(p.perCarton ?? "")}" placeholder="e.g. 12 (blank = no carton)" ${dis}></div>
-      <div class="field"><p class="lbl">${T("Low-stock alert at")}</p><input type="number" inputmode="numeric" id="pLow" min="0" value="${esc(p.low ?? "")}" placeholder="e.g. 10" ${dis}></div>
-    </div>
-    <label class="switch" style="margin:2px 0 14px"><input type="checkbox" id="pRolls" ${p.rolls ? "checked" : ""} ${dis}> ${T("PPF roll — counted in rolls, with a Roll ID for every roll")}</label>
+    ${multi ? `
+      <div class="field"><p class="lbl">${T("Counted in")}</p>${unitSel}</div>
+      <label class="switch" style="margin:2px 0 14px"><input type="checkbox" id="pRolls" ${p.rolls ? "checked" : ""}> ${T("PPF roll — counted in rolls, with a Roll ID for every roll")}</label>
+      <p class="lbl">${T("Sizes")}</p>
+      <div class="hint" style="margin:-2px 0 10px">${T("Write each pack size you buy, one per line. The app adds the size to the name and keeps a separate stock for each one.")}</div>
+      <div id="pSizes"></div>
+      <div id="pPreview" class="hint" style="margin:4px 0 12px"></div>`
+    : `<div class="grid2">
+        <div class="field"><p class="lbl">${T("Pack / size")}</p><input type="text" id="pPack" value="${esc(p.pack||"")}" placeholder="50 ml" ${dis}></div>
+        <div class="field"><p class="lbl">${T("Counted in")}</p>${unitSel}</div>
+      </div>
+      <div class="grid2">
+        <div class="field"><p class="lbl">${T("Per carton")}</p><input type="number" inputmode="numeric" id="pPer" min="0" value="${esc(p.perCarton ?? "")}" placeholder="e.g. 12 (blank = no carton)" ${dis}></div>
+        <div class="field"><p class="lbl">${T("Low-stock alert at")}</p><input type="number" inputmode="numeric" id="pLow" min="0" value="${esc(p.low ?? "")}" placeholder="e.g. 10" ${dis}></div>
+      </div>
+      <label class="switch" style="margin:2px 0 14px"><input type="checkbox" id="pRolls" ${p.rolls ? "checked" : ""} ${dis}> ${T("PPF roll — counted in rolls, with a Roll ID for every roll")}</label>`}
+    ${!isNew && canEdit ? `<button type="button" class="btn sm" id="pMore" style="margin:-4px 0 14px">+ ${T("Add another size of this product")}</button>` : ""}
     ${!isNew ? `<p class="lbl" style="margin-top:4px">${T("Linked codes")}</p>
       <div style="border:1px solid var(--line);border-radius:14px;padding:0 12px;margin-bottom:10px">
         <div class="item"><div class="nm"><b>🏷 ${T("Our QR label")}</b><small class="mono">${esc(labelCode(pid))}</small></div><button class="btn sm" id="pLabel">${T("Print")}</button></div>
@@ -2932,31 +2949,104 @@ function productSheet(pid, preset, afterSave){
     <div class="row" style="margin-top:6px">
       ${!isNew && isAdmin() ? `<button class="btn danger" id="pDel">${T("Delete")}</button>` : ""}
       <button class="btn" id="pCancel" style="flex:1">${T(canEdit ? "Cancel" : "Close")}</button>
-      ${canEdit ? `<button class="btn dark" id="pSave" style="flex:2">${T("Save product")}</button>` : ""}
+      ${canEdit ? `<button class="btn dark" id="pSave" style="flex:2">${T(multi ? "Save products" : "Save product")}</button>` : ""}
     </div>`, resumeCam);
   setTimeout(() => canEdit && isNew && $("#pName")?.focus(), 60);
   $("#pCancel").onclick = closeSheet;
+  const rollsOn = () => $("#pRolls")?.checked;
+  const fullName = (base, size) => size ? `${base} ${size}` : base;
+  // ---- sizes (new products only)
+  const drawSizes = () => {
+    if (!multi) return;
+    const roll = rollsOn();
+    const cols = roll ? "1.5fr 1fr 34px" : "1.3fr 1fr 1fr 34px";
+    const head = `<div style="display:grid;grid-template-columns:${cols};gap:6px;margin-bottom:4px">
+      <span class="lbl" style="margin:0;font-size:9.5px">${T("Size")}</span>
+      ${roll ? "" : `<span class="lbl" style="margin:0;font-size:9.5px">${T("Pieces per carton")}</span>`}
+      <span class="lbl" style="margin:0;font-size:9.5px">${T("Warn when stock is at")}</span><span></span></div>`;
+    $("#pSizes").innerHTML = head + sizes.map((z, i) => `<div style="display:grid;grid-template-columns:${cols};gap:6px;margin-bottom:6px;align-items:center">
+        <input type="text" data-zs="${i}" value="${esc(z.size)}" placeholder="${esc(i === 0 ? "e.g. 1L" : i === 1 ? "e.g. 5L" : "e.g. 20L")}" style="padding:10px 12px">
+        ${roll ? "" : `<input type="number" inputmode="numeric" min="0" data-zp="${i}" value="${esc(z.per)}" placeholder="${esc(T("e.g. 12"))}" style="padding:10px 12px">`}
+        <input type="number" inputmode="numeric" min="0" data-zl="${i}" value="${esc(z.low)}" placeholder="${esc(T("e.g. 5"))}" style="padding:10px 12px">
+        ${sizes.length > 1 ? `<button type="button" data-zx="${i}" aria-label="${esc(T("Remove this size"))}" style="width:34px;height:34px;border-radius:50%;border:1px solid rgba(240,68,74,.5);background:none;color:var(--out);cursor:pointer">✕</button>` : "<span></span>"}
+      </div>`).join("") + `<button type="button" class="btn sm" id="pAddSize" style="margin:2px 0 4px">+ ${T("Add another size")}</button>
+      <div class="hint" style="margin:6px 0 0;font-size:12px">${T("Only one size? Leave Size empty. The two number boxes are optional.")}</div>`;
+    $("#pAddSize").onclick = () => { const last = sizes[sizes.length - 1] || {}; sizes.push({size: "", per: last.per || "", low: last.low || ""}); drawSizes(); $("#pSizes").querySelector(`[data-zs="${sizes.length - 1}"]`)?.focus(); };
+    drawPreview();
+  };
+  const drawPreview = () => {
+    if (!multi) return;
+    const base = $("#pName").value.trim();
+    const names = sizes.map(z => fullName(base, z.size.trim())).filter(Boolean);
+    $("#pPreview").innerHTML = base && names.length ? `${T("Will create")}: ${names.map(n => `<b style="color:#fff">${esc(n)}</b>`).join(", ")}` : "";
+  };
+  if (multi){
+    drawSizes();
+    $("#pSizes").addEventListener("input", e => {
+      const d = e.target.dataset;
+      if (d.zs != null){ sizes[d.zs].size = e.target.value; drawPreview(); }
+      if (d.zp != null) sizes[d.zp].per = e.target.value;
+      if (d.zl != null) sizes[d.zl].low = e.target.value;
+    });
+    $("#pSizes").addEventListener("click", e => { const x = e.target.closest("[data-zx]"); if (x){ sizes.splice(Number(x.dataset.zx), 1); drawSizes(); } });
+    $("#pRolls").onchange = () => { $("#pUnit").disabled = rollsOn(); drawSizes(); };
+    $("#pUnit").disabled = rollsOn();
+    $("#pName").addEventListener("input", drawPreview);
+  }
   const simBox = () => {
     const sim = similarProducts($("#pName").value, pid);
     $("#pSim").innerHTML = sim.length ? `<div class="banner" style="margin:-4px 0 10px">${T("Looks similar to")}: ${sim.map(x => `<b>${esc(x.name)}</b>`).join(", ")}. ${T("Don't create the same product twice.")}</div>` : "";
     return sim;
   };
   if (canEdit) $("#pName").addEventListener("input", simBox);
+  if ($("#pMore")) $("#pMore").onclick = () => {
+    // start a new product with the same name, minus this product's size
+    let base = p.name || "";
+    const w = base.split(/\s+/);
+    for (let k = 1; k <= 3 && p.pack && k < w.length; k++) if (compact(w.slice(-k).join(" ")) === compact(p.pack)){ base = w.slice(0, -k).join(" "); break; }
+    sheetClose = null; closeSheet();
+    productSheet(null, {name: base, unit: p.unit, rolls: p.rolls, sizes: [{size: "", per: p.perCarton ? String(p.perCarton) : "", low: p.low != null ? String(p.low) : ""}]});
+  };
   if ($("#pLabel")) $("#pLabel").onclick = () => { sheetClose = null; closeSheet(); labelsSheet([pid]); };
   $("#sheet").querySelectorAll("[data-rmcode],[data-rmpre]").forEach(b => b.onclick = () => {
     const c = b.dataset.rmcode, pre = b.dataset.rmpre;
     const upd = c ? {codes: (p.codes||[]).filter(x => x !== c)} : {prefixes: (p.prefixes||[]).filter(x => x !== pre)};
     updateDoc(doc(db, "products", pid), upd).then(() => { codeIndex = null; closeSheet(); toast(T("Code unlinked")); }).catch(err => toast(err.code||err.message, true));
   });
+  const newId = name => "p-" + slug(name).slice(0, 40) + "-" + Math.random().toString(36).slice(2, 6);
   if ($("#pSave")) $("#pSave").onclick = () => {
     const name = $("#pName").value.trim(); if (!name) return toast(T("Give it a name"), true);
-    const per = $("#pPer").value === "" ? null : Math.max(0, Math.floor(Number($("#pPer").value)));
-    const low = $("#pLow").value === "" ? null : Math.max(0, Number($("#pLow").value));
-    const rolls = $("#pRolls").checked;
+    const rolls = rollsOn(), unit = rolls ? "roll" : $("#pUnit").value;
+    const num = v => v === "" || v == null ? null : Math.max(0, Math.floor(Number(v)));
+    if (multi){
+      const list = sizes.map(z => ({size: z.size.trim(), per: num(z.per), low: num(z.low)})).filter((z, i) => z.size || sizes.length === 1 || i === 0);
+      const names = list.map(z => fullName(name, z.size));
+      if (list.length > 1 && list.some(z => !z.size)) return toast(T("Type a size on every line, or remove the empty one"), true);
+      if (new Set(names.map(n => compact(n))).size !== names.length) return toast(T("The same size is listed twice"), true);
+      const exists = names.filter(n => Object.values(S.products).some(q => compact(q.name) === compact(n)));
+      if (exists.length) return toast(`${T("Already a product")}: ${exists.join(", ")}`, true);
+      const save = () => {
+        const now = Date.now(), b = writeBatch(db), made = [];
+        list.forEach(z => {
+          const full = fullName(name, z.size), id = newId(full);
+          const data = {name: full, pack: z.size, unit, perCarton: rolls ? null : (z.per > 1 ? z.per : null), low: z.low, rolls,
+            codes: [], prefixes: [], billNames: [], created: now, updated: now, by: S.me.email};
+          b.set(doc(db, "products", id), data); S.products[id] = data; made.push(full);
+        });
+        codeIndex = null; sheetClose = null; closeSheet(); renderCart(); render();
+        b.commit().catch(err => toast("Not saved: " + (err.code||err.message), true));
+        toast(made.length > 1 ? `${made.length} ${T("products saved")}` : T("Product saved"));
+        resumeCam();
+      };
+      const sim = names.flatMap(n => similarProducts(n)).filter((x, i, a) => a.findIndex(y => y.pid === x.pid) === i);
+      if (sim.length) return confirmBox(T("Looks similar to"), sim.map(x => `• <b>${esc(x.name)}</b>`).join("<br>") + `<br><br>${T("Create it anyway?")}`, T("Create anyway"), save);
+      return save();
+    }
+    const per = num($("#pPer").value), low = $("#pLow").value === "" ? null : Math.max(0, Number($("#pLow").value));
     if (!isNew && !!p.rolls !== rolls && Object.entries(S.stock).some(([sid, st]) => stockPid(sid) === pid && st.qty)) return toast(T("This product has stock — the PPF roll setting can only change when its stock is zero"), true);
-    const data = {name, pack: $("#pPack").value.trim(), unit: rolls ? "roll" : $("#pUnit").value, perCarton: rolls ? null : (per > 1 ? per : null), low, rolls, updated: Date.now(), by: S.me.email};
+    const data = {name, pack: $("#pPack").value.trim(), unit, perCarton: rolls ? null : (per > 1 ? per : null), low, rolls, updated: Date.now(), by: S.me.email};
     const save = () => {
-      const id = pid || ("p-" + slug(name).slice(0, 40) + "-" + Math.random().toString(36).slice(2, 6));
+      const id = pid || newId(name);
       if (isNew){ data.codes = preset?.code ? [preset.code] : []; data.prefixes = []; data.billNames = []; data.created = Date.now(); }
       S.products[id] = {...(S.products[id] || {}), ...data}; codeIndex = null;
       sheetClose = null; closeSheet(); renderCart(); render();
@@ -3011,30 +3101,6 @@ function dealerSheet(id, presetName, onSaved){
     } catch(err){ toast("Not saved: " + (err.code||err.message), true); }
   };
   if ($("#dDel")) $("#dDel").onclick = () => confirmBox("Delete client?", `${esc(d.name)} will be removed from the list. Past entries stay.`, T("Delete"), () => deleteDoc(doc(db, "dealers", id)).catch(err => toast(err.code||err.message, true)), true);
-}
-function vehicleSheet(pid){
-  const v = pid ? S.vehicles[pid] : {};
-  openSheet(`<h3>${pid ? T("Edit car") : T("Add car")}</h3>
-    <div class="field"><p class="lbl">${T("Car no.")} <span class="req">*</span></p><input type="text" id="vPlate" value="${esc(v.plate||"")}" placeholder="UK07 AB 1234" style="text-transform:uppercase" ${pid?"disabled":""}></div>
-    <div class="field"><p class="lbl">${T("Car model")}</p><input type="text" id="vModel" value="${esc(v.model||"")}" placeholder="e.g. Hyundai Creta"></div>
-    <div class="grid2">
-      <div class="field"><p class="lbl">${T("Owner")}</p><input type="text" id="vOwner" value="${esc(v.owner||"")}" placeholder="Optional"></div>
-      <div class="field"><p class="lbl">${T("Owner phone")}</p><input type="tel" id="vPhone" inputmode="tel" value="${esc(v.ownerPhone||"")}" placeholder="Optional"></div>
-    </div>
-    <div class="row" style="margin-top:6px">
-      ${pid && isAdmin() ? `<button class="btn danger" id="vDel">${T("Delete")}</button>` : ""}
-      <button class="btn" id="vCancel" style="flex:1">${T("Cancel")}</button>
-      <button class="btn dark" id="vSave" style="flex:2">${T("Save")}</button>
-    </div>`);
-  $("#vCancel").onclick = closeSheet;
-  $("#vSave").onclick = async () => {
-    const plate = plateNorm($("#vPlate").value), id = pid || plateId(plate);
-    if (!id || id.length < 5) return toast("Enter the car number", true);
-    const ph = $("#vPhone").value.trim(); if (ph && !phoneOk(ph)) return toast("Enter a valid owner phone", true);
-    try { await setDoc(doc(db, "vehicles", id), {plate, model: $("#vModel").value.trim(), owner: $("#vOwner").value.trim(), ownerPhone: cleanPhone(ph), updated: Date.now()}, {merge:true}); closeSheet(); toast("Car saved"); }
-    catch(err){ toast("Not saved: " + (err.code||err.message), true); }
-  };
-  if ($("#vDel")) $("#vDel").onclick = () => confirmBox("Delete car?", esc(v.plate), T("Delete"), () => deleteDoc(doc(db, "vehicles", pid)).catch(err => toast(err.code||err.message, true)), true);
 }
 function depotSheet(id){
   const d = id ? S.depots[id] : {};
@@ -3123,7 +3189,7 @@ function entryRows(list){
   return rows;
 }
 $("#xlHist").onclick = () => saveXlsx(`PPF-Co-history-${$("#hFrom").value}-to-${$("#hTo").value}.xlsx`, [["Entries", entryRows(filteredHist())]]);
-$("#xlMonth").onclick = () => saveXlsx(`PPF-Co-${S.monthKey}.xlsx`, [["Entries", entryRows(S.month)], ...summarySheets()]);
+$("#xlMonth").onclick = () => { const sh = summarySheets(); saveXlsx(`PPF-Co-${S.monthKey}.xlsx`, [["Entries", entryRows(SUM.all)], ...sh]); };
 $("#xlStock").onclick = () => {
   const dep = $("#stockDepot").value;
   saveXlsx(`PPF-Co-stock-${S.today}.xlsx`, [["Stock", stockRows(dep).map(r => ({"Product": r.name, "Pack": r.pack, "Store": dep === "all" ? "All stores" : depotName(dep), "In stock": r.qty, "Unit": unitOf(r.pid), "Cartons": perCtn(r.pid) ? qtyText(r.pid, r.qty).split(" = ")[0] : "", "Low alert": r.low ?? "", "Low?": r.low != null && r.qty <= r.low ? "LOW" : ""}))],
@@ -3138,7 +3204,9 @@ function render(){
   applyStatic();
   renderDepotSelects();
   const dep = curDepot(), stock = stockMap(dep);
-  let units = 0, skus = 0; Object.values(stock).forEach(q => { if (q > 0){ units += q; skus++; } });
+  let units = 0, skus = 0; Object.values(stock).forEach(q => { if (q > 0) skus++; });
+  Object.entries(S.products).forEach(([pid, p]) => { if (p.low != null && (stock[pid] || 0) <= p.low) units++; });
+  $("#k-units").style.color = units ? "var(--warn)" : "";
   let tin = 0, tout = 0; S.todayEntries.forEach(e => { if ((e.depot||"main") !== dep) return; if (e.type === "out") tout += e.total||0; else if (e.type === "in") tin += e.total||0; });
   $("#k-units").textContent = fmt(units); $("#k-skus").textContent = fmt(skus); $("#k-in").textContent = fmt(tin); $("#k-out").textContent = fmt(tout);
   $("#scanArea").hidden = !canScan(); $("#viewOnly").hidden = canScan();
@@ -3203,7 +3271,9 @@ $("#stockSearch").addEventListener("input", () => renderStock());
 $("#stockDepot").addEventListener("change", () => renderStock());
 function renderStock(){
   const q = $("#stockSearch").value.trim().toLowerCase(), dep = $("#stockDepot").value || "all";
-  const rows = stockRows(dep).filter(r => !q || normName(r.name + " " + r.pack + " " + (isRoll(r.pid) ? rollsInStock(r.pid, dep === "all" ? "" : dep).join(" ") : "")).includes(normName(q)));
+  const isLow = r => r.low != null && r.qty <= r.low;
+  const rows = stockRows(dep).filter(r => !q || normName(r.name + " " + r.pack + " " + (isRoll(r.pid) ? rollsInStock(r.pid, dep === "all" ? "" : dep).join(" ") : "")).includes(normName(q)))
+    .sort((a, b) => isLow(b) - isLow(a));
   $("#stockActions").hidden = !isAdmin();
   $("#stockList").innerHTML = rows.length ? rows.map(r => {
     const low = r.low != null && r.qty <= r.low, per = perCtn(r.pid), roll = isRoll(r.pid);
@@ -3255,7 +3325,7 @@ function group(list, keyFn){
   return m;
 }
 function summaryData(){
-  const L = S.month, ins = L.filter(e => e.type === "in"), b2b = L.filter(e => e.type === "out" && !isSelf(e)), self = L.filter(isSelf);
+  const L = S.monthKey === monthKey(Date.now()) ? S.month.filter(e => e.day !== S.today).concat(S.todayEntries) : S.month, ins = L.filter(e => e.type === "in"), b2b = L.filter(e => e.type === "out" && !isSelf(e)), self = L.filter(isSelf);
   const sum = es => es.reduce((a, e) => a + (e.total||0), 0);
   const split = es => ({inn: sum(es.filter(e => e.type === "in")), b2b: sum(es.filter(e => e.type === "out" && !isSelf(e))), self: sum(es.filter(isSelf))});
   const dealer = [...group(b2b, e => e.dealerId || e.dealer)].map(([k, es]) => ({k, label: S.dealers[k]?.name || es[0].dealer, sales: es.length, units: sum(es), value: es.reduce((a, e) => a + (e.value||0), 0), last: Math.max(...es.map(e => e.ts)), es})).sort((a,b) => b.value - a.value);
@@ -3265,7 +3335,7 @@ function summaryData(){
   const product = [...pm.values()].map(r => ({...r, es:[...r.es]})).sort((a,b) => (b.b2b + b.self) - (a.b2b + a.self) || b.inn - a.inn);
   const depot = [...group(L, e => e.depot || "main")].map(([k, es]) => ({k, label: depotName(k), ...split(es), es}));
   const day = [...group(L, e => e.day)].map(([k, es]) => ({k, label: dayLabel(k), ...split(es), es})).sort((a,b) => b.k.localeCompare(a.k));
-  return {ins, b2b, self, dealer, product, depot, day};
+  return {ins, b2b, self, dealer, product, depot, day, all: L};
 }
 let SUM = null;
 function table(id, cols, rows){
@@ -3290,7 +3360,7 @@ function renderSummary(){
   table("#sDay", [{h:"Date", f:r => esc(r.label)}, {h:"In", n:1, f:r => cIn(r.inn)}, {h:"B2B", n:1, f:r => cB(r.b2b)}, {h:"Self use", n:1, f:r => cS(r.self)}], SUM.day);
 }
 function summarySheets(){
-  if (!SUM) SUM = summaryData();
+  SUM = summaryData();
   return [
     ["Product-wise", SUM.product.map(r => ({"Product": r.label, "In": r.inn, "B2B sold": r.b2b, "Self use": r.self, "Adjusted": r.adj, "Unit": unitOf(r.k)}))],
     ["Client-wise (B2B)", SUM.dealer.map(r => ({"Client": r.label, "Sales": r.sales, "Units": r.units, "Value (₹)": r.value, "Last sale": new Date(r.last).toLocaleString("en-IN")}))],
@@ -3314,7 +3384,7 @@ function saveAdjustment(items, reason, note){
   const eref = doc(collection(db, "entries"));
   b.set(eref, entry);
   items.forEach(i => (i.rolls || []).forEach(id => b.update(doc(db, "rolls", safeId(id)), {status: "writeoff", outAt: now, outEntry: eref.id, outKind: "adj", outTo: reason})));
-  items.forEach(i => b.set(doc(db, "stock", dep + "|" + i.pid), {depot: dep, pid: i.pid, qty: increment(i.qty), updated: now}, {merge:true}));
+  items.forEach(i => b.set(doc(db, "stock", dep + "|" + i.pid), {depot: dep, pid: i.pid, qty: increment(i.qty), updated: now, entry: eref.id}, {merge:true}));
   return b.commit();
 }
 function rollAdjustSheet(pid){
@@ -3409,7 +3479,7 @@ $("#openingBtn").onclick = () => openingSheet();
 function adjDetailSheet(e){
   openSheet(`<h3><span class="pill adj">ADJ</span> ${when(e.ts)}</h3>
     <div class="hint" style="margin:4px 0 10px">${esc(T(e.reason || ""))}${e.note ? " · " + esc(e.note) : ""} · ${esc(e.depotName || depotName(e.depot))} · ${esc(e.byName || e.by || "")}</div>
-    ${(e.items||[]).map(i => `<div class="item"><div class="nm"><b>${esc(i.name)}</b></div><div class="stockn" style="color:${i.qty < 0 ? "var(--warn)" : "var(--in)"}">${i.qty > 0 ? "+" : ""}${fmt(i.qty)}</div></div>`).join("")}
+    ${(e.items||[]).map(i => `<div class="item"><div class="nm"><b>${esc(i.name)}</b>${(i.rolls||[]).length ? `<div class="rollchips">${i.rolls.map(id => `<span class="chip mono">${esc(id)}</span>`).join("")}</div>` : ""}</div><div class="stockn" style="color:${i.qty < 0 ? "var(--warn)" : "var(--in)"}">${i.qty > 0 ? "+" : ""}${fmt(i.qty)}</div></div>`).join("")}
     <div class="row" style="margin-top:12px">${isAdmin() ? `<button class="btn danger" id="adDel">${T("Delete")}</button>` : ""}<button class="btn dark" id="adClose" style="flex:1">${T("Close")}</button></div>`);
   $("#adClose").onclick = closeSheet;
   if ($("#adDel")) $("#adDel").onclick = () => deleteEntry(e);
@@ -3471,17 +3541,30 @@ function parseBill(lines){
     finish();
   });
   finish();
+  if (!out.rows.length){
+    lines.forEach(line => {
+      const l = line.trim();
+      if (!/\d/.test(l) || BILL_STOP.test(l) || l.length > 160) return;
+      const pid = billMatch(l); if (!pid) return;
+      const p = S.products[pid], pn = nums(p.name + " " + (p.pack || ""));
+      const um = l.match(/(\d[\d,]*(?:\.\d+)?)\s*(rolls?|bottles?|btls?|pcs|nos?|cans?|kits?|box(?:es)?|packs?|pkts?|pouch(?:es)?)\b/i);
+      let qty = um ? Number(um[1].replace(/,/g, "")) : null;
+      if (qty == null){ const c = (l.match(/(?<![\w.])\d[\d,]*(?:\.\d+)?(?![\w.])/g) || []).map(n => Number(n.replace(/,/g, ""))).filter(n => Number.isInteger(n) && n > 0 && n < 10000 && !pn.has(String(n))); qty = c[0]; }
+      if (!qty) return;
+      out.rows.push({sn: "", desc: l.replace(/\s{2,}/g, " ").slice(0, 120), qty: Math.round(qty), unit: unitOf(pid), cost: 0, rolls: [], pid});
+    });
+  }
   out.rows.forEach(r => {
-    r.pid = billMatch(r.desc);
+    r.pid = r.pid || billMatch(r.desc);
     r.isPpf = /paint protection film|\bppf\b/i.test(r.desc) || (r.pid && isRoll(r.pid));
     if (r.isPpf) r.unit = "roll";
-    r.name = billTitle(r.desc);
+    r.name = r.sn ? billTitle(r.desc) : pname(r.pid);
   });
   return out;
 }
 
 const SAMPLE_BILL = "JVBERi0xLjMKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgKG9wZW5zb3VyY2UpCjEgMCBvYmoKPDwKL0YxIDIgMCBSIC9GMiAzIDAgUiAvRjMgNCAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL0Jhc2VGb250IC9IZWx2ZXRpY2EgL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcgL05hbWUgL0YxIC9TdWJ0eXBlIC9UeXBlMSAvVHlwZSAvRm9udAo+PgplbmRvYmoKMyAwIG9iago8PAovQmFzZUZvbnQgL0hlbHZldGljYS1Cb2xkIC9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nIC9OYW1lIC9GMiAvU3VidHlwZSAvVHlwZTEgL1R5cGUgL0ZvbnQKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL0Jhc2VGb250IC9IZWx2ZXRpY2EtT2JsaXF1ZSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyAvTmFtZSAvRjMgL1N1YnR5cGUgL1R5cGUxIC9UeXBlIC9Gb250Cj4+CmVuZG9iago1IDAgb2JqCjw8Ci9Db250ZW50cyA5IDAgUiAvTWVkaWFCb3ggWyAwIDAgNTk1LjI3NTYgODQxLjg4OTggXSAvUGFyZW50IDggMCBSIC9SZXNvdXJjZXMgPDwKL0ZvbnQgMSAwIFIgL1Byb2NTZXQgWyAvUERGIC9UZXh0IC9JbWFnZUIgL0ltYWdlQyAvSW1hZ2VJIF0KPj4gL1JvdGF0ZSAwIC9UcmFucyA8PAoKPj4gCiAgL1R5cGUgL1BhZ2UKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL1BhZ2VNb2RlIC9Vc2VOb25lIC9QYWdlcyA4IDAgUiAvVHlwZSAvQ2F0YWxvZwo+PgplbmRvYmoKNyAwIG9iago8PAovQXV0aG9yIChhbm9ueW1vdXMpIC9DcmVhdGlvbkRhdGUgKEQ6MjAyNjExMTcxNTE3NTgrMDAnMDAnKSAvQ3JlYXRvciAoYW5vbnltb3VzKSAvS2V5d29yZHMgKCkgL01vZERhdGUgKEQ6MjAyNjExMTcxNTE3NTgrMDAnMDAnKSAvUHJvZHVjZXIgKFJlcG9ydExhYiBQREYgTGlicmFyeSAtIFwob3BlbnNvdXJjZVwpKSAKICAvU3ViamVjdCAodW5zcGVjaWZpZWQpIC9UaXRsZSAodW50aXRsZWQpIC9UcmFwcGVkIC9GYWxzZQo+PgplbmRvYmoKOCAwIG9iago8PAovQ291bnQgMSAvS2lkcyBbIDUgMCBSIF0gL1R5cGUgL1BhZ2VzCj4+CmVuZG9iago5IDAgb2JqCjw8Ci9GaWx0ZXIgWyAvQVNDSUk4NURlY29kZSAvRmxhdGVEZWNvZGUgXSAvTGVuZ3RoIDk1NAo+PgpzdHJlYW0KR2F0JWI+Qj84ZiY7QiQ1LydfWVpfLHE+KzlBVHM0S1cuXCU5bVYpXDJKdSVkR3FkT05zMVciMGBlIyV0XjNFLDlaWSpAcywtPDoiI1xgaEEvOmEzLGlzPm0jTHRBPDJXWyIrUE8wPiIjIzBORWBsYTA8RyMhLjxMO3E4MGkkWlVfLj88UlZaQnE4ZFs8clUkSFwoVGhGXGpdUzAwMWheRFJNQXRyWSErJVk3ZjtMLiJia2NDK0RPW15kbGNfbyxmTSorbktaNHVYQDdoKGg6REk2b2kkYGIvWEYvNUNjMy0oJ0skTSZCcCdcaz9VVj1yXTRvc08nP2JaRHFpaiRfXioqY3NnXXQiXltYTGdlLEJocHU4TitEWSg1LCFYWG9aalFOMHVEMGsqUV5OW0BSPkNCTmlIcDlCcFdMS010KC9GTW5HQGNBMWk6O3VJRFVQTkApJDY3bllpcGFKV0c6I0hAWV8qISMibG1nNEpaO1RWVzpLPV5TUSNFJyJcJnRvYFdFIVxYXissbSZvWzwtNGF1NEFoOHIsP0JLaWkzPDdsJVtpSEZGMSMkY2hXOGEjaVJBcU4kTlMxOTViOGQ+Z0RqaEwlOGM+LWp1SCRGKSptajczMzJHV3VPU2M7MlYnTXRfWXRMMS1XbjpwaENEWEUxQy48JyRhIS5yLlA8VzcsO1tHRVYlayUkSG5OJThQSjsoYExLJFNSdGdULThsYTcvQmFHUiNqKj5XIzpSJlZBTFc5RFExWGkxVWcpcHRCRCg7QSMjIiZKUlYyJ0pTZUBBQl9uSk1BaFklakQ3aXNJPGRMZGQpT11VbiFoXlYhJzE1UHBRYVpBJUc0MHVfVkhnZW09R1JPQllTQlJpNGgzIkhpU2FbJENPbGByYTpVSnBOJ1xCXmkncWpkZzY/Y1VSO3BnQjM4UlRVbU91QypIZWNoMWdhOWhlb14nOV0xM15mbi1ZN2tMXWdFKiI0YkYvPj4zXD5qSSFaUDlZLyFMTDtpTzhCUWtsIzB1XHNYNCtJNjlVcm1VcGNubGleNzolUidsayduJCdNIzY4bihdI15lR1ZpJktdOSFqJTYvTkhuIkFaPCVMJygtJ29kUyVAXCNnJ1hbVSVuTj9hNmZXWHBZYW5gWHJrWiktaGJBQGhbWjxCRChhX1FRSj9daS5UcFsnWHFHTE08OXJiKlhxPVtDXGNbXixMLTBFXVFjRlsrLltDYjRzLEV0QF1QJExmYV5xYFYuODcnSTZSSUFiXlg7JTY3MH4+ZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgMTAKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDYxIDAwMDAwIG4gCjAwMDAwMDAxMTIgMDAwMDAgbiAKMDAwMDAwMDIxOSAwMDAwMCBuIAowMDAwMDAwMzMxIDAwMDAwIG4gCjAwMDAwMDA0NDYgMDAwMDAgbiAKMDAwMDAwMDY0OSAwMDAwMCBuIAowMDAwMDAwNzE3IDAwMDAwIG4gCjAwMDAwMDA5NzggMDAwMDAgbiAKMDAwMDAwMTAzNyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9JRCAKWzxhNjhkOWFlYzRmZmJkMmE5NTY5NzNjYjgxZjJhODU1Mz48YTY4ZDlhZWM0ZmZiZDJhOTU2OTczY2I4MWYyYTg1NTM+XQolIFJlcG9ydExhYiBnZW5lcmF0ZWQgUERGIGRvY3VtZW50IC0tIGRpZ2VzdCAob3BlbnNvdXJjZSkKCi9JbmZvIDcgMCBSCi9Sb290IDYgMCBSCi9TaXplIDEwCj4+CnN0YXJ0eHJlZgoyMDgxCiUlRU9GCg==";
-const PDFJS_BASE = () => window.PDFJS_BASE || "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/";
+const PDFJS_BASE = () => window.PDFJS_BASE || "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/";
 let pdfjsLib = null;
 async function loadPdfJs(){
   if (pdfjsLib) return pdfjsLib;
@@ -3698,11 +3781,6 @@ function renderSettings(){
       .map(([id, d]) => `<div class="item tap" data-dealer="${esc(id)}"><div class="nm"><b>${esc(d.name)}</b><small>${esc(d.phone||"no phone")}${d.town?" · "+esc(d.town):""} · ${(d.customers||[]).length} ${T("customers")} · ${Object.keys(d.rates||{}).length} ${T("rates")}</small></div>${canScan()?`<span class="btn sm">Edit</span>`:""}</div>`).join("");
     el.innerHTML = search + listCard(T("B2B clients"), "Only these businesses can be picked on a B2B sale. Customers and the last rate for each product are remembered under each client.", isSup() ? `<button class="btn sm dark" id="addDealer">+ ${T("Add client")}</button>` : "", rows, "No clients yet.");
   }
-  if (S.sub === "vehicles"){
-    const rows = Object.entries(S.vehicles).filter(([id, v]) => !q || [v.plate, v.model, v.owner].join(" ").toLowerCase().includes(q)).sort((a,b) => (b[1].lastService||0) - (a[1].lastService||0) || (a[1].plate||"").localeCompare(b[1].plate||""))
-      .map(([id, v]) => `<div class="item tap" data-veh="${esc(id)}"><div class="nm"><b>${esc(v.plate)}</b><small>${esc([v.model || "—", v.owner, v.lastService ? "last job " + new Date(v.lastService).toLocaleDateString("en-IN", {day:"2-digit", month:"short"}) : ""].filter(Boolean).join(" · "))}</small></div>${canScan()?`<span class="btn sm">Edit</span>`:""}</div>`).join("");
-    el.innerHTML = search + listCard(T("Customer cars"), "Cars are remembered automatically from self-use entries, with their model, so the next job fills in faster.", canScan() ? `<button class="btn sm dark" id="addVeh">+ ${T("Add car")}</button>` : "", rows, "No cars yet — they're added automatically on self use.");
-  }
   if (S.sub === "depots"){
     const st = {}; Object.values(S.stock).forEach(s => st[s.depot] = (st[s.depot]||0) + (s.qty||0));
     const rows = depotList().map(d => `<div class="item tap" data-depot="${esc(d.id)}"><div class="nm"><b>${esc(d.name)}</b><small>${fmt(st[d.id]||0)} ${T("units")}</small></div><span class="btn sm">Rename</span></div>`).join("");
@@ -3736,12 +3814,10 @@ $("#settingsBody").addEventListener("click", e => {
   if (t.closest("#addProd")) return productSheet(null);
   if (t.closest("#printLabels")) return labelsSheet();
   const d = t.closest("[data-dealer]"); if (d && canScan()) return dealerSheet(d.dataset.dealer);
-  const v = t.closest("[data-veh]"); if (v && canScan()) return vehicleSheet(v.dataset.veh);
   const dp = t.closest("[data-depot]"); if (dp) return depotSheet(dp.dataset.depot);
   const m = t.closest("[data-mem]"); if (m) return memberSheet(m.dataset.mem);
   const l = t.closest("[data-lang]"); if (l){ lang = l.dataset.lang; LS.set("lang", lang); applyStatic(); renderFields(); render(); return; }
   if (t.id === "addDealer") dealerSheet(null);
-  if (t.id === "addVeh") vehicleSheet(null);
   if (t.id === "addDepot") depotSheet(null);
   if (t.id === "addMem") memberSheet(null);
   if (t.id === "setHelp") showHelp();
